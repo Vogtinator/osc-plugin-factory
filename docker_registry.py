@@ -60,6 +60,7 @@ class DockerHubClient():
             kwargs["headers"] = {}
 
         while True:
+            resp = None
             if self.token is not None:
                 kwargs["headers"]["Authorization"] = "Bearer " + self.token
 
@@ -73,10 +74,6 @@ class DockerHubClient():
                     return False
 
                 resp = methods[method](url, **kwargs)
-
-                print(resp)
-                print(resp.headers)
-                print(resp.content)
 
             if self.token is None or resp.status_code == 401 or resp.status_code == 403:
                 if try_update_token:
@@ -113,6 +110,16 @@ class DockerHubClient():
 
             return resp.status_code == 200
 
+    def getManifest(self, reference):
+        """Get a (json-parsed) manifest with the given reference (digest or tag)"""
+        resp = self.doHttpCall("GET", "/v2/%s/manifests/%s" % (self.repository, reference),
+                               headers={'Accept': "application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json"})
+
+        if resp.status_code != 200:
+            return False
+
+        return json.loads(resp.content)
+
     def uploadBlob(self, filename):
         digest = os.path.basename(filename)
         if not digest.startswith("sha256:"):
@@ -137,7 +144,4 @@ class DockerHubClient():
 
 
 dhc = DockerHubClient("https://registry-1.docker.io", "favogt", os.environ["DHCPASS"], "favogt/tumbleweed")
-dhc.uploadBlob("/tmp/sha256:c5437a4c5fb875b8d8d5845148851f6e8eb80fac0ac0803cf2c4f10cb0ef4517")
-dhc.uploadBlob("/tmp/opensuse-tw-image/sha256:98fe96b0e17f5228edd3cb6dc29268044b90bb7110b2132132da199ecc3b4b87")
-dhc.uploadManifest("/tmp/manifest")
-dhc.uploadManifest("/tmp/manifest.list", "experimental")
+print(dhc.getManifest("experimental"))
