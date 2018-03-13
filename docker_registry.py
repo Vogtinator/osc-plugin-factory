@@ -50,6 +50,8 @@ class DockerHubClient():
         self.token = response.json()["token"]
 
     def doHttpCall(self, method, url, **kwargs):
+        """This method wraps the requested method from the requests module to
+        add the token for authorization."""
         try_update_token = True
 
         # Relative to the host
@@ -120,10 +122,34 @@ class DockerHubClient():
 
         return json.loads(resp.content)
 
+    def getManifestDigest(self, reference):
+        """Return the digest of the manifest with the given reference.
+        If the manifest doesn't exist or the request fails, it returns False."""
+        resp = self.doHttpCall("HEAD", "/v2/%s/manifests/%s" % (self.repository, reference),
+                               headers={'Accept': "application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json"})
+
+        if resp.status_code != 200:
+            return False
+
+        return resp.headers['Docker-Content-Digest']
+
+    def deleteManifest(self, digest):
+        """Delete the manifest with the given reference."""
+        resp = self.doHttpCall("DELETE", "/v2/%s/manifests/%s" % (self.repository, digest))
+
+        return resp.status_code == 200
+
     def uploadBlob(self, filename):
+        """Upload the blob with the given filename (has to equal path + digest).
+        Returns True if blob already exists or upload succeeded."""
         digest = os.path.basename(filename)
         if not digest.startswith("sha256:"):
             raise Exception("Invalid filename")
+
+        # Check whether the blob already exists - don't upload it needlessly.
+        stat_request = self.doHttpCall("HEAD", "/v2/%s/blobs/%s" % (self.repository, digest))
+        if stat_request.status_code == 200 or stat_request.status_code == 307:
+            return True
 
         # For now we can do a single upload call with everything inlined
         # (which also means completely in ram, but currently it's never > 50 MiB)
@@ -141,7 +167,3 @@ class DockerHubClient():
             return upload.status_code == 201
 
         return False
-
-
-dhc = DockerHubClient("https://registry-1.docker.io", "favogt", os.environ["DHCPASS"], "favogt/tumbleweed")
-print(dhc.getManifest("experimental"))
