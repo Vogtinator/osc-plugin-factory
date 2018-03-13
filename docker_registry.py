@@ -85,32 +85,46 @@ class DockerHubClient():
 
             return resp
 
-    def uploadManifest(self, filename, reference=None):
+    def uploadManifest(self, content, reference=None):
+        """Upload a manifest. Data is given as bytes in content, the digest/tag in reference.
+        If reference is None, the digest is computed and used as reference.
+        On success, the used reference is returned. False otherwise."""
+        content_json = json.loads(content)
+        if "mediaType" not in content_json:
+            raise Exception("Invalid manifest")
+
+        if reference is None:
+            alg = hashlib.sha256()
+            alg.update(content)
+            reference = "sha256:" + alg.hexdigest()
+
+        resp = self.doHttpCall("PUT", "/v2/%s/manifests/%s" % (self.repository, reference),
+                               headers={'Content-Type': content_json["mediaType"]},
+                               data=content)
+
+        if resp.status_code != 200:
+            return False
+
+        return reference
+
+    def uploadManifestFile(self, filename, reference=None):
         """Upload a manifest. If the filename doesn't equal the digest, it's computed.
         If reference is None, the digest is used. You can use the manifest's tag
-        for example."""
+        for example.
+        On success, the used reference is returned. False otherwise."""
         with open(filename, "rb") as manifest:
             content = manifest.read()
 
             if reference is None:
-                reference = os.path.basename(filename)
-                if not reference.startswith("sha256:"):
-                    alg = hashlib.sha256()
-                    alg.update(content)
-                    reference = "sha256:" + alg.hexdigest()
+                basename = os.path.basename(filename)
+                if basename.startswith("sha256:"):
+                    reference = basename
 
             if reference is None:
                 raise Exception("No reference determined")
 
-            content_json = json.loads(content)
-            if "mediaType" not in content_json:
-                raise Exception("Invalid manifest")
+            return self.uploadManifest(content, reference)
 
-            resp = self.doHttpCall("PUT", "/v2/%s/manifests/%s" % (self.repository, reference),
-                                   headers={'Content-Type': content_json["mediaType"]},
-                                   data=content)
-
-            return resp.status_code == 200
 
     def getManifest(self, reference):
         """Get a (json-parsed) manifest with the given reference (digest or tag)"""

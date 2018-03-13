@@ -41,6 +41,8 @@ import shutil
 import glob
 from lxml import etree as xml
 
+import docker_registry
+
 REPOMD_NAMESPACES = {'md': "http://linux.duke.edu/metadata/common",
                      'repo': "http://linux.duke.edu/metadata/repo",
                      'rpm': "http://linux.duke.edu/metadata/rpm"}
@@ -236,6 +238,93 @@ ADD %s /
         return True
 
 
+class DockerImagePublisherRegistry(DockerImagePublisher):
+    MAP_ARCH_RPM_DOCKER = {'x86_64': "amd64"}
+
+    def __init__(self, dhc, tag):
+        self.dhc = dhc
+        self.tag = tag
+        self.manifestlist = None
+        self.superseded_manifests = []
+
+    def releasedDockerImageVersion(self, arch):
+        if arch not in self.MAP_ARCH_RPM_DOCKER:
+            raise DockerPublishException("Unknown arch %s" % arch)
+
+        docker_arch = self.MAP_ARCH_RPM_DOCKER[arch]
+
+        manifestlist = self.dhc.getManifest(self.tag)
+
+        for manifest in manifestlist['manifests']:
+            if manifest['platform']['architecture'] == docker_arch:
+                if 'vnd-opensuse-version' in manifest:
+                    return manifest['vnd-opensuse-version']
+
+        # No manifest or arch not in the manifest -> force outdated version
+        return "0"
+
+    def prepareReleasing(self):
+        self.manifestlist = self.dhc.getManifest(self.tag)
+
+        # Generate an empty manifestlist
+        if not self.manifestlist:
+            self.manifestlist = {'schemaVersion': 2,
+                                 'tag': self.tag,
+                                 'mediaType': "application/vnd.docker.distribution.manifest.list.v2+json",
+                                 'manifests': []}
+
+        return True
+
+    def getV2ManifestEntry(self, filename, mediaType):
+        """For V1 -> V2 schema conversion. filename's basename has to equal the digest"""
+        digest = os.path.basename(filename)
+        if not digest.startswith("sha256"):
+            raise DockerPublishException("Invalid manifest contents")
+
+        return {'mediaType': mediaType,
+                'size': os.path.getsize(filename),
+                'digest': digest}
+
+    def convertV1ToV2Manifest(self, path, manifest_v1):
+        """Converts the v1 manifest in manifest_v1 to a V2 manifest and returns it"""
+
+        layers = []
+        for layer_filename in manifest_v1['Layers']:
+            layers += [self.getV2ManifestEntry(path + "/" + layer_filename,
+                                               "application/vnd.docker.image.rootfs.diff.tar.gzip")]
+
+        return {'schemaVersion': 2,
+                'mediaType': "application/vnd.docker.distribution.manifest.v2+json",
+                'config': self.getV2ManifestEntry(path + "/" + manifest_v1['Config'],
+                                                  "application/vnd.docker.container.image.v1+json"),
+                'layers': layers}
+
+    def addImage(self, version, arch, image_path):
+        manifest = None
+
+        with open(image_path + "/manifest.json") as manifest_file:
+            manifest = json.load(manifest_file)
+
+        manifest_v2 = self.convertV1ToV2Manifest(image_path, manifest[0])
+
+        # Upload blobs
+        # ...
+
+        # Upload the manifest
+        manifest_digest = self.dhc.uploadManifest(json.dumps(manifest_v2).encode('utf-8'))
+
+        print(manifest_digest)
+
+        # Register the manifest in the list, update superseded_manifests
+
+    def finishReleasing(self):
+        # Push the new manifest list
+        #...
+
+        # Delete superseded_manifests
+        pass
+
+
 class DockerImageFetcherTW(DockerImageFetcher):
     def __init__(self, versioned_redir, repourl, arch):
         self.versioned_redir = versioned_redir
@@ -284,19 +373,19 @@ class DockerImageFetcherTW(DockerImageFetcher):
 
 
 def run():
-    dhc = docker_registry.DockerHubClient("https://registry-1.docker.io", "favogt", os.environ["DHCPASS"], "favogt/tumbleweed")
-
     tw_fetchers = {
         'x86_64': DockerImageFetcherTW(versioned_redir="http://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-DVD-x86_64-Current.iso",
                                        repourl="http://download.opensuse.org/tumbleweed/repo/oss/suse",
                                        arch="x86_64")
         }
-    tw_publisher = DockerImagePublisherGit(git_path=os.path.expanduser("/tmp/docker-containers-build"),
-                                           git_branch="openSUSE-Tumbleweed")
 
-    archs_to_update = {}
+    dhc = docker_registry.DockerHubClient("https://registry-1.docker.io", "favogt", os.environ["DHCPASS"], "favogt/tumbleweed")
+    tw_publisher = DockerImagePublisherRegistry(dhc, "experimental")
+
+    archs_to_update = {'x86_64': '42'}
 
     for arch in tw_fetchers:
+        continue
         try:
             print("Architecture %s" % (arch))
 
