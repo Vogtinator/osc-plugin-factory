@@ -81,16 +81,26 @@ def recompress(source, dest):
 
 
 class DockerImagePublisher:
-    """Base class for handling the publishing of docker images."""
+    """Base class for handling the publishing of docker images.
+    This handles multiple architectures, which have different layers
+    and therefore versions."""
 
-    def releasedDockerImageVersion(self):
+    def releasedDockerImageVersion(self, arch):
         """This function returns an identifier for the released docker
         image's version."""
         raise "pure virtual"
 
-    def releaseDockerImage(self, version, rootfile):
-        """This function publishes the docker image with root fs layer @rootfile.
-        After this was called, releasedDockerImageVersion must return @version."""
+    def prepareReleasing(self):
+        """Prepare the environment to allow calls to releaseDockerImage."""
+        raise "pure virtual"
+
+    def addImage(self, version, arch, image_path):
+        """This function adds the docker image with the image manifest, config layers
+        in image_path."""
+        raise "pure virtual"
+
+    def finishReleasing(self):
+        """This function publishes the released layers."""
         raise "pure virtual"
 
 
@@ -117,17 +127,18 @@ class DockerFetchException(Exception):
 
 
 class DockerImagePublisherGit(DockerImagePublisher):
-    def __init__(self, git_path, git_branch, path, arch):
+    def __init__(self, git_path, git_branch, path="."):
         """Initialize a DockerImagePublisherGit with:
         @git_path: Path to the local git repo clone
         @git_branch: Branch of the image
-        @path: Path to the directory within the branch which will contain:
+        @path: Path to the directory within the branch which will contain a
+        directory for each architecture, containing:
         - Dockerfile (including version in a comment)
         - *.tar.xz: Images"""
         self.git_path = git_path
         self.git_branch = git_branch
         self.path = path
-        self.arch = arch
+        self.updated_images = {}
 
         self.git_call = ["git", "-C", self.git_path]
 
@@ -135,9 +146,9 @@ class DockerImagePublisherGit(DockerImagePublisher):
         if ret != 0:
             raise DockerFetchException("Could not fetch from origin")
 
-    def releasedDockerImageVersion(self):
+    def releasedDockerImageVersion(self, arch):
         # Read from git using cat-file to avoid expensive checkout.
-        args = self.git_call + ["cat-file", "--textconv", "origin/%s:%s/Dockerfile" % (self.git_branch, self.path)]
+        args = self.git_call + ["cat-file", "--textconv", "origin/%s:%s/%s/Dockerfile" % (self.git_branch, self.path, arch)]
         with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
             version_regex = re.compile("^# Version: (.+)$")
             for line in p.stdout:
@@ -155,7 +166,7 @@ MAINTAINER Fabian Vogt <fvogt@suse.com>
 ADD %s /
 """ % (version, filename)
 
-    def releaseDockerImage(self, version, rootfile):
+    def prepareReleasing(self):
         # Try to delete the old branch
         try:
             subprocess.call(self.git_call + ["checkout", "-q", "origin/%s" % (self.git_branch)])
@@ -169,30 +180,54 @@ ADD %s /
         if ret != 0:
             raise DockerPublishException("Could not checkout git branch")
 
+        return True
+
+    def addImage(self, version, arch, image_path):
+        target_dir = "%s/%s/%s" % (self.git_path, self.path, arch)
+
         # Remove all old files
-        for file in glob.glob("%s/%s/*" % (self.git_path, self.path)):
+        for file in glob.glob(target_dir + "/*"):
             os.remove(file)
 
         # Re-compress it into the correct location and format
-        targetfilename = "openSUSE-Tumbleweed-%s-%s.tar.xz" % (self.arch, version)
+        targetfilename = "openSUSE-Tumbleweed-%s-%s.tar.xz" % (arch, version)
 
-        if not recompress(rootfile, "%s/%s/%s" % (self.git_path, self.path, targetfilename)):
+        # Parse the manifest to get the name of the root tar.xz
+        manifest = json.loads(open(image_path + '/manifest.json').read())
+        layers = manifest[0]['Layers']
+        if len(layers) != 1:
+            raise DockerPublishException("Unexpected count of layers in the image")
+
+        image_layer_file = image_path + '/' + layers[0]
+
+        if not recompress(image_layer_file, target_dir + "/" + targetfilename):
             raise DockerPublishException("Could not repackage the root fs layer")
 
         # Update the version number
         try:
-            with open("%s/%s/Dockerfile" % (self.git_path, self.path), "w") as dockerfile:
+            with open(target_dir + "/Dockerfile", "w") as dockerfile:
                 dockerfile.write(self.generateDockerFile(version, targetfilename))
         except (IOError, OSError) as e:
             raise DockerPublishException("Could not update the version file: %s" % e)
 
-        # And create a commit
+        self.updated_images[arch] = version
+
+        return True
+
+
+    def finishReleasing(self):
         ret = subprocess.call(self.git_call + ["add", "--all"])
         if ret == 0:
-            ret = subprocess.call(self.git_call + ["commit", "-am", "Update %s image to %s" % (self.path, version)])
+            message = "Update image to current version\n"
+            for arch, version in self.updated_images.items():
+                message += "\n- Update %s image to %s" % (arch, version)
+
+            ret = subprocess.call(self.git_call + ["commit", "-am", message])
 
         if ret != 0:
             raise DockerPublishException("Could not create commit")
+
+        self.updated_images = {}
 
         ret = subprocess.call(self.git_call + ["push", "--force", "origin", self.git_branch])
         if ret != 0:
@@ -245,51 +280,60 @@ class DockerImageFetcherTW(DockerImageFetcher):
             with tempfile.TemporaryDirectory() as tar_dir:
                 # Extract the .tar.xz inside the RPM into the dir
                 subprocess.call("rpm2cpio '%s' | cpio -i --quiet --to-stdout \*.tar.xz | tar -xJf - -C '%s'" % (rpm_file.name, tar_dir), shell=True)
-                # Parse the manifest to get the name of the root tar.xz
-                manifest = json.loads(open(tar_dir + '/manifest.json').read())
-                layers = manifest[0]['Layers']
-                if len(layers) != 1:
-                    raise DockerFetchException("Unexpected count of layers in the image")
-
-                image_layer_file = tar_dir + '/' + layers[0]
-                return callback(image_layer_file)
+                return callback(tar_dir)
 
 
 def run():
-    tw_fetcher = DockerImageFetcherTW(versioned_redir="http://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-DVD-x86_64-Current.iso",
-                                      repourl="http://download.opensuse.org/tumbleweed/repo/oss/suse",
-                                      arch="x86_64")
-    tw_publisher = DockerImagePublisherGit(git_path=os.path.expanduser("~/docker-containers-build"),
-                                           git_branch="openSUSE-Tumbleweed",
-                                           path="x86_64", arch="x86_64")
+    dhc = docker_registry.DockerHubClient("https://registry-1.docker.io", "favogt", os.environ["DHCPASS"], "favogt/tumbleweed")
 
-    try:
-        current = tw_fetcher.currentVersion()
-        released = tw_publisher.releasedDockerImageVersion()
-    except Exception as e:
-        print("Exception during version fetching - aborting:")
-        raise e
+    tw_fetchers = {
+        'x86_64': DockerImageFetcherTW(versioned_redir="http://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-DVD-x86_64-Current.iso",
+                                       repourl="http://download.opensuse.org/tumbleweed/repo/oss/suse",
+                                       arch="x86_64")
+        }
+    tw_publisher = DockerImagePublisherGit(git_path=os.path.expanduser("/tmp/docker-containers-build"),
+                                           git_branch="openSUSE-Tumbleweed")
 
-    print("Available version: %s" % (current))
-    print("Released version: %s" % (released))
+    archs_to_update = {}
 
-    release = current != released
+    for arch in tw_fetchers:
+        try:
+            print("Architecture %s" % (arch))
 
-    if "--release" in sys.argv[1:]:
-        print("Forcing release.")
-        release = True
+            current = tw_fetchers[arch].currentVersion()
+            print("Available version: %s" % (current))
 
-    if not release:
+            released = tw_publisher.releasedDockerImageVersion(arch)
+            print("Released version: %s" % (released))
+
+            if current != released:
+                archs_to_update[arch] = current
+
+        except Exception as e:
+            print("Exception during version fetching: %s" % e)
+
+    if not archs_to_update:
         print("Nothing to do.")
         return 0
 
-    try:
-        tw_fetcher.getDockerImage(lambda rootfs: tw_publisher.releaseDockerImage(current, rootfs))
-    except DockerFetchException as dfe:
-        print("Could not fetch the image: %s" % dfe)
+    if not tw_publisher.prepareReleasing():
+        print("Could not prepare the publishing")
         return 1
-    except DockerPublishException as dpe:
-        print("Could not publish the image: %s" % dpe)
+
+    for arch, version in archs_to_update.items():
+        try:
+            tw_fetchers[arch].getDockerImage(lambda image_path: tw_publisher.addImage(version=version,
+                                                                                      arch=arch,
+                                                                                      image_path=image_path))
+        except DockerFetchException as dfe:
+            print("Could not fetch the image: %s" % dfe)
+            return 1
+        except DockerPublishException as dpe:
+            print("Could not publish the image: %s" % dpe)
+            return 1
+
+    if not tw_publisher.finishReleasing():
+        print("Could not publish the image")
         return 1
 
     return 0
