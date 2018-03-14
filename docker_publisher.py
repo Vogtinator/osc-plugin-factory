@@ -381,13 +381,13 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
             raise DockerPublishException("Could not upload the new manifest list")
 
         # Delete the old manifest list
-        self.dhc.deleteManifest(released_manifestlist_digest)
+        if released_manifestlist_digest is not False:
+            self.dhc.deleteManifest(released_manifestlist_digest)
 
         # Delete superseded manifests
         new_manifests = [manifest['digest'] for manifest in self.new_manifestlist['manifests']]
-        if self.released_manifestlist is None:
-            released_manifests = []
-        else:
+        released_manifests = []
+        if self.released_manifestlist is not None:
             released_manifests = [manifest['digest'] for manifest in self.released_manifestlist['manifests']]
 
         for manifest in released_manifests:
