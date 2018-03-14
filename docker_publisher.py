@@ -239,6 +239,10 @@ ADD %s /
 
 
 class DockerImagePublisherRegistry(DockerImagePublisher):
+    """The DockerImagePublisherRegistry class works by using a manifest list to
+    describe a tag. The list contains a manifest for each architecture.
+    The manifest will be edited instead of replaced, which means if you don't
+    call addImage for an architecture, the existing released image stays in place."""
     MAP_ARCH_RPM_DOCKER = {'x86_64': "amd64",
                            'armv7l': "arm",
                            'aarch64': "arm64",
@@ -246,6 +250,8 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
                            's390x': "s390x"}
 
     def __init__(self, dhc, tag):
+        """Construct a DIPR by passing a DockerRegistryClient instance as dhc
+        and a name for a tag as tag."""
         self.dhc = dhc
         self.tag = tag
         # Construct a new manifestlist for the tag.
@@ -391,6 +397,11 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
 
 
 class DockerImageFetcherURL(DockerImageFetcher):
+    """A trivial implementation. It downloads a (compressed) tar archive and passes
+    the decompressed contents to the callback.
+    The version number can't be determined automatically (it would need to extract
+    the image and look at /etc/os-release each time - too expensive.) so it
+    has to be passed manually."""
     def __init__(self, version, url):
         self.version = version
         self.url = url
@@ -409,7 +420,10 @@ class DockerImageFetcherURL(DockerImageFetcher):
 
 
 class DockerImageFetcherRepo(DockerImageFetcher):
-    """This can be used when """
+    """This can be used when the image is wrapped into an RPM and released as
+    part of the main repository, as it is the case for Tumbleweed.
+    The version equals the version of the product in the repository, determined
+    by the versioned_redir URL redirection target."""
     def __init__(self, versioned_redir, repourl, packagename, arch):
         self.versioned_redir = versioned_redir
         self.repourl = repourl
@@ -442,7 +456,7 @@ class DockerImageFetcherRepo(DockerImageFetcher):
                                                       namespaces=REPOMD_NAMESPACES)[0]
 
     def getDockerImage(self, callback):
-        """Download and extract the RPM from the repo."""
+        # Download and extract the RPM from the repo.
         image_layer_file = tempfile.NamedTemporaryFile(delete=False)
 
         rpm_url = self.getRPMUrl(self.packagename, self.arch)
@@ -476,8 +490,8 @@ def run():
         #                                url="https://download.opensuse.org/repositories/home:/favogt:/branches:/openSUSE:/Factory:/Containers/openSUSE_Factory_zSystems/opensuse-tumbleweed-image.s390x-1.0.4-Build7.1.docker.tar.xz"),
         }
 
-    drc = docker_registry.DockerRegistryClient("https://registry-1.docker.io", "favogt", os.environ["DHCPASS"], "favogt/tumbleweed")
-    tw_publisher = DockerImagePublisherRegistry(drc, "experimental")
+    drc = docker_registry.DockerRegistryClient("https://registry-1.docker.io", os.environ["DHCUSER"], os.environ["DHCPASS"], os.environ["DHCREPO"])
+    tw_publisher = DockerImagePublisherRegistry(drc, "latest")
 
     archs_to_update = {}
 
