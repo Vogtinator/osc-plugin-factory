@@ -51,7 +51,7 @@ class DockerRegistryClient():
         def __str__(self):
             ret = "Docker Registry errors:"
             for error in self.errors:
-                ret += "\n" + error
+                ret += "\n" + str(error)
 
             return ret
 
@@ -101,7 +101,7 @@ class DockerRegistryClient():
                     self._updateToken(resp.headers["Www-Authenticate"])
                     continue
 
-            if resp.status_code > 400 and resp.status_code < 500:
+            if resp.status_code > 400 and resp.status_code < 404:
                 try:
                     errors = resp.json()['errors']
                     raise self.DockerRegistryError(errors)

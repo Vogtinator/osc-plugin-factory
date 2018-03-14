@@ -271,12 +271,16 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
 
         manifestlist = self.dhc.getManifest(self.tag)
 
+        if manifestlist is False:
+            # No manifest -> force outdated version
+            return "0"
+
         for manifest in manifestlist['manifests']:
             if manifest['platform']['architecture'] == docker_arch:
                 if 'vnd-opensuse-version' in manifest:
                     return manifest['vnd-opensuse-version']
 
-        # No manifest or arch not in the manifest -> force outdated version
+        # Arch not in the manifest -> force outdated version
         return "0"
 
     def prepareReleasing(self):
