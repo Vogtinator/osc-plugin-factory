@@ -152,9 +152,13 @@ class DockerRegistryClient():
 
 
     def getManifest(self, reference):
-        """Get a (json-parsed) manifest with the given reference (digest or tag)"""
+        """Get a (json-parsed) manifest with the given reference (digest or tag).
+        If the manifest does not exist, return None. For other errors, False."""
         resp = self.doHttpCall("GET", "/v2/%s/manifests/%s" % (self.repository, reference),
                                headers={'Accept': "application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json"})
+
+        if resp.status_code == 404:
+            return None
 
         if resp.status_code != 200:
             return False
