@@ -244,8 +244,8 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
     The manifest will be edited instead of replaced, which means if you don't
     call addImage for an architecture, the existing released image stays in place."""
     MAP_ARCH_RPM_DOCKER = {'x86_64': "amd64",
-                           'armv7l': "arm32v7",
-                           'aarch64': "arm64v8",
+                           'armv7l': "arm",
+                           'aarch64': "arm64",
                            'ppc64le': "ppc64le",
                            's390x': "s390x"}
 
