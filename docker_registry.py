@@ -114,7 +114,7 @@ class DockerRegistryClient():
         """Upload a manifest. Data is given as bytes in content, the digest/tag in reference.
         If reference is None, the digest is computed and used as reference.
         On success, the used reference is returned. False otherwise."""
-        content_json = json.loads(content)
+        content_json = json.loads(content.decode('utf-8'))
         if "mediaType" not in content_json:
             raise Exception("Invalid manifest")
 
@@ -163,7 +163,7 @@ class DockerRegistryClient():
         if resp.status_code != 200:
             return False
 
-        return json.loads(resp.content)
+        return resp.json()
 
     def getManifestDigest(self, reference):
         """Return the digest of the manifest with the given reference.
