@@ -271,7 +271,7 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
 
         manifestlist = self.dhc.getManifest(self.tag)
 
-        if manifestlist is False:
+        if manifestlist is None:
             # No manifest -> force outdated version
             return "0"
 
