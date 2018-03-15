@@ -494,7 +494,7 @@ def run():
         #                                url="https://download.opensuse.org/repositories/home:/favogt:/branches:/openSUSE:/Factory:/Containers/openSUSE_Factory_zSystems/opensuse-tumbleweed-image.s390x-1.0.4-Build7.1.docker.tar.xz"),
         }
 
-    drc = docker_registry.DockerRegistryClient("https://registry-1.docker.io", os.environ["DHCUSER"], os.environ["DHCPASS"], os.environ["DHCREPO"])
+    drc = docker_registry.DockerRegistryClient(os.environ['REGISTRY'], os.environ['REGISTRY_USER'], os.environ['REGISTRY_PASSWORD'], os.environ['REGISTRY_REPO'])
     tw_publisher = DockerImagePublisherRegistry(drc, "latest")
 
     archs_to_update = {}
