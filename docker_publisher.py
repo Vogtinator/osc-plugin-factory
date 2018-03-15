@@ -201,7 +201,7 @@ ADD %s /
         if len(layers) != 1:
             raise DockerPublishException("Unexpected count of layers in the image")
 
-        image_layer_file = image_path + '/' + layers[0]
+        image_layer_file = image_path + "/" + layers[0]
 
         if not recompress(image_layer_file, target_dir + "/" + targetfilename):
             raise DockerPublishException("Could not repackage the root fs layer")

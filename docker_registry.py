@@ -205,7 +205,6 @@ class DockerRegistryClient():
         if upload_request.status_code == 202:
             location = upload_request.headers["Location"]
             upload = self.doHttpCall("PUT", location + "&digest=" + digest,
-                                     headers={'Content-Length': str(len(content))},
                                      data=content)
             return upload.status_code == 201
 
