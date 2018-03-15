@@ -335,8 +335,8 @@ exit 0
 %systemd_postun
 
 %pre docker-publisher
-getent passwd opensuse-relmgr-bot > /dev/null || \
-  useradd -r -m -s /sbin/nologin -c "user for openSUSE-release-tools-docker-publisher" opensuse-relmgr-bot
+getent passwd osrt-docker-publisher > /dev/null || \
+  useradd -r -m -s /sbin/nologin -c "user for openSUSE-release-tools-docker-publisher" osrt-docker-publisher
 exit 0
 
 %postun docker-publisher
@@ -482,6 +482,14 @@ fi
 %{_datadir}/%{source_dir}/check_source.py
 %{_unitdir}/osrt-check-source.service
 %{_unitdir}/osrt-check-source.timer
+
+%files docker-publisher
+%defattr(-,root,root,-)
+%{_bindir}/osrt-docker_publisher
+%{_datadir}/%{source_dir}/docker_publisher.pl
+%{_datadir}/%{source_dir}/docker_registry.py
+%{_unitdir}/osrt-docker-publisher.service
+%{_unitdir}/osrt-docker-publisher.timer
 
 %files leaper
 %defattr(-,root,root,-)
