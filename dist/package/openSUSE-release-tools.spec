@@ -127,6 +127,18 @@ Requires(pre):  shadow
 %description check-source
 Check source review bot that performs basic source analysis and assigns reviews.
 
+%package docker-publisher
+Summary:        Docker image publishing bot
+Group:          Development/Tools/Other
+BuildArch:      noarch
+Requires:       python3-requests
+Requires:       python3-lxml
+Requires(pre):  shadow
+
+%description docker-publisher
+A docker image publishing bot which regularly pushes built docker images from
+several sources (Repo, URL) to several destinations (git, Docker registries)
+
 %package leaper
 Summary:        Leap-style services
 Group:          Development/Tools/Other
@@ -320,6 +332,14 @@ getent passwd osrt-check-source > /dev/null || \
 exit 0
 
 %postun check-source
+%systemd_postun
+
+%pre docker-publisher
+getent passwd opensuse-relmgr-bot > /dev/null || \
+  useradd -r -m -s /sbin/nologin -c "user for openSUSE-release-tools-docker-publisher" opensuse-relmgr-bot
+exit 0
+
+%postun docker-publisher
 %systemd_postun
 
 %pre leaper
