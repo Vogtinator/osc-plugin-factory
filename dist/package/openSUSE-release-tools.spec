@@ -453,6 +453,8 @@ exit 0
 %exclude %{_datadir}/%{source_dir}/check_source.pl
 %exclude %{_datadir}/%{source_dir}/check_source.py
 %exclude %{_datadir}/%{source_dir}/devel-project.py
+%exclude %{_datadir}/%{source_dir}/docker_publisher.py
+%exclude %{_datadir}/%{source_dir}/docker_registry.py
 %exclude %{_datadir}/%{source_dir}/leaper.py
 %exclude %{_datadir}/%{source_dir}/manager_42.py
 %exclude %{_datadir}/%{source_dir}/metrics
