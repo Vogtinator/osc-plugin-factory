@@ -508,7 +508,7 @@ exit 0
 %files docker-publisher
 %defattr(-,root,root,-)
 %{_bindir}/osrt-docker_publisher
-%{_datadir}/%{source_dir}/docker_publisher.pl
+%{_datadir}/%{source_dir}/docker_publisher.py
 %{_datadir}/%{source_dir}/docker_registry.py
 %{_unitdir}/osrt-docker-publisher.service
 %{_unitdir}/osrt-docker-publisher.timer
