@@ -423,6 +423,37 @@ class DockerImageFetcherURL(DockerImageFetcher):
                 return callback(tar_dir)
 
 
+class DockerImageFetcherOBS(DockerImageFetcher):
+    """Uses the OBS API to access the build artifacts.
+    Url has to be https://build.opensuse.org/public/build/<project>/<repo>/<arch>/<pkgname>"""
+    def __init__(self, url):
+        self.url = url
+
+    def _getFilename(self):
+        """Return the name of the binary at the URL with the filename ending in
+        .docker.tar.xz."""
+        binarylist_req = requests.get(self.url)
+        binarylist = xml.fromstring(binarylist_req.content)
+        for binary in binarylist.xpath("binary/@filename"):
+            if binary.endswith(".docker.tar.xz"):
+                return binary
+
+    def currentVersion(self):
+        """Return {version}-Build{build} of the docker file."""
+        filename = self._getFilename()
+        return re.match(".*((-[^-]+){2})\.docker\.tar\.xz", filename).group(1)[1:]
+
+    def getDockerImage(self, callback):
+        """Download the tar and extract it"""
+        filename = self._getFilename()
+        with tempfile.NamedTemporaryFile() as tar_file:
+            tar_file.write(requests.get(self.url + "/" + filename).content)
+            with tempfile.TemporaryDirectory() as tar_dir:
+                # Extract the .tar.xz into the dir
+                subprocess.call("tar -xaf '%s' -C '%s'" % (tar_file.name, tar_dir), shell=True)
+                return callback(tar_dir)
+
+
 class DockerImageFetcherRepo(DockerImageFetcher):
     """This can be used when the image is wrapped into an RPM and released as
     part of the main repository, as it is the case for Tumbleweed.
