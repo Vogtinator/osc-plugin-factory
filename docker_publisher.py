@@ -438,6 +438,8 @@ class DockerImageFetcherOBS(DockerImageFetcher):
             if binary.endswith(".docker.tar.xz"):
                 return binary
 
+        raise DockerFetchException("No docker image built in the repository")
+
     def currentVersion(self):
         """Return {version}-Build{build} of the docker file."""
         filename = self._getFilename()
@@ -512,17 +514,10 @@ def run():
                                          repourl="http://download.opensuse.org/tumbleweed/repo/oss/suse",
                                          packagename="opensuse-tumbleweed-image",
                                          arch="x86_64"),
-        # There are no containers built in the official projects for ports - yet.
-        # We have images for those architectures now, so avoid regressions by packaging some very close to official images.
-        # There is no openQA testing for them and they're most likely not in sync with the released snapshot either :-/
-        # This is done as a one off, the comment remains as documentation and example on how to inject images manually:
-        # 'aarch64': DockerImageFetcherURL(version="20180313",
-        #                                  url="https://download.opensuse.org/repositories/Virtualization:/containers:/images:/openSUSE-Tumbleweed/containers/opensuse-tumbleweed-image.aarch64-1.0.4-Build1.18.docker.tar.xz"),
-        # 'ppc64le': DockerImageFetcherURL(version="20180313",
-        #                                  url="https://download.opensuse.org/repositories/Virtualization:/containers:/images:/openSUSE-Tumbleweed/containers/opensuse-tumbleweed-image.ppc64le-1.0.4-Build1.19.docker.tar.xz"),
-        # 's390x': DockerImageFetcherURL(version="20180104",
-        #                                # Not built in the devel prj yet
-        #                                url="https://download.opensuse.org/repositories/home:/favogt:/branches:/openSUSE:/Factory:/Containers/openSUSE_Factory_zSystems/opensuse-tumbleweed-image.s390x-1.0.4-Build7.1.docker.tar.xz"),
+        # No release yet, so we'll have to take them from the OBS project directly
+        'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_ARM/aarch64/opensuse-tumbleweed-image"),
+        'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_PowerPC/ppc64le/opensuse-tumbleweed-image"),
+        's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_zSystems/s390x/opensuse-tumbleweed-image"),
         }
 
     drc = docker_registry.DockerRegistryClient(os.environ['REGISTRY'], os.environ['REGISTRY_USER'], os.environ['REGISTRY_PASSWORD'], os.environ['REGISTRY_REPO'])
