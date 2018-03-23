@@ -511,7 +511,7 @@ class DockerImageFetcherRepo(DockerImageFetcher):
 def run():
     tw_fetchers = {
         'x86_64': DockerImageFetcherRepo(versioned_redir="http://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-DVD-x86_64-Current.iso",
-                                         repourl="http://download.opensuse.org/tumbleweed/repo/oss/suse",
+                                         repourl="http://download.opensuse.org/tumbleweed/repo/oss",
                                          packagename="opensuse-tumbleweed-image",
                                          arch="x86_64"),
         # No release yet, so we'll have to take them from the OBS project directly
