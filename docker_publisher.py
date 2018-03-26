@@ -22,13 +22,13 @@
 
 # This script's job is to listen for new releases of products with docker images
 # and publish those.
-# For Tumbleweed, the images are published within RPMs as part of the OSS repo.
-# They need to be extracted and pushed into gitHub/openSUSE/docker-containers-build.
-# For anything else, still WIP.
-# This script is written with easy extensibility in mind, as in the future it may:
-# - pull docker images from different locations in different formats
-# - push to oS registries
+# For Tumbleweed, the images are published within RPMs as part of the OSS repo,
+# so after openQA testing they need to be downloaded and extracted.
+# For Leap, the .tar.xz can be downloaded directly.
+# Both of those get pushed to the docker hub.
+# It's also possible to push to a git repo for the official library.
 
+import argparse
 import copy
 import glob
 import json
@@ -249,11 +249,14 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
                            'ppc64le': "ppc64le",
                            's390x': "s390x"}
 
-    def __init__(self, dhc, tag):
+    def __init__(self, dhc, tag, aliases=[]):
         """Construct a DIPR by passing a DockerRegistryClient instance as dhc
-        and a name for a tag as tag."""
+        and a name for a tag as tag.
+        Optionally, add tag aliases as aliases. Those will only be written to,
+        never read."""
         self.dhc = dhc
         self.tag = tag
+        self.aliases = aliases
         # Construct a new manifestlist for the tag.
         self.new_manifestlist = None
         # Compare it with the released manifestlist after publishing
@@ -376,9 +379,17 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
     def finishReleasing(self):
         released_manifestlist_digest = self.dhc.getManifestDigest(self.tag)
 
+        # Generate the manifest content
+        manifestlist_content = json.dumps(self.new_manifestlist).encode('utf-8')
+
         # Push the new manifest list
-        if not self.dhc.uploadManifest(json.dumps(self.new_manifestlist).encode('utf-8'), self.tag):
+        if not self.dhc.uploadManifest(manifestlist_content, self.tag):
             raise DockerPublishException("Could not upload the new manifest list")
+
+        # Push the aliases
+        for alias in self.aliases:
+            if not self.dhc.uploadManifest(manifestlist_content, alias):
+                raise DockerPublishException("Could not push an manifest list alias")
 
         # Delete the old manifest list
         if released_manifestlist_digest is not False:
@@ -509,64 +520,104 @@ class DockerImageFetcherRepo(DockerImageFetcher):
 
 
 def run():
-    tw_fetchers = {
-        'x86_64': DockerImageFetcherRepo(versioned_redir="http://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-DVD-x86_64-Current.iso",
-                                         repourl="http://download.opensuse.org/tumbleweed/repo/oss",
-                                         packagename="opensuse-tumbleweed-image",
-                                         arch="x86_64"),
-        # No release yet, so we'll have to take them from the OBS project directly
-        'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_ARM/aarch64/opensuse-tumbleweed-image"),
-        'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_PowerPC/ppc64le/opensuse-tumbleweed-image"),
-        's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_zSystems/s390x/opensuse-tumbleweed-image"),
-        }
+    drc_tw = docker_registry.DockerRegistryClient(os.environ['REGISTRY'], os.environ['REGISTRY_USER'], os.environ['REGISTRY_PASSWORD'], os.environ['REGISTRY_REPO_TW'])
+    drc_leap = docker_registry.DockerRegistryClient(os.environ['REGISTRY'], os.environ['REGISTRY_USER'], os.environ['REGISTRY_PASSWORD'], os.environ['REGISTRY_REPO_LEAP'])
 
-    drc = docker_registry.DockerRegistryClient(os.environ['REGISTRY'], os.environ['REGISTRY_USER'], os.environ['REGISTRY_PASSWORD'], os.environ['REGISTRY_REPO'])
-    tw_publisher = DockerImagePublisherRegistry(drc, "latest")
+    config = {
+        'tumbleweed': {
+            'fetchers': {
+                'x86_64': DockerImageFetcherRepo(versioned_redir="http://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-DVD-x86_64-Current.iso",
+                                                 repourl="http://download.opensuse.org/tumbleweed/repo/oss",
+                                                 packagename="opensuse-tumbleweed-image",
+                                                 arch="x86_64"),
+                # No release yet, so we'll have to take them from the OBS project directly
+                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_ARM/aarch64/opensuse-tumbleweed-image"),
+                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_PowerPC/ppc64le/opensuse-tumbleweed-image"),
+                's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_zSystems/s390x/opensuse-tumbleweed-image"),
+            },
+            'publisher': DockerImagePublisherRegistry(drc_tw, "latest"),
+        },
+        'leap-42.3': {
+            'fetchers': {
+                # No officially built images available - use the devel prj
+                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-42.3/containers/x86_64/openSUSE-Leap-42.3-container-image"),
+                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-42.3/containers/aarch64/openSUSE-Leap-42.3-container-image"),
+                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-42.3/containers/ppc64le/openSUSE-Leap-42.3-container-image"),
+            },
+            'publisher': DockerImagePublisherRegistry(drc_leap, "leap-42.3", ["leap-42", "latest"]),
+        },
+        'leap-15.0': {
+            'fetchers': {
+                # No official release available yet - use OBS directly
+                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Leap:15.0:Images/images/x86_64/opensuse-leap-image"),
+            },
+            'publisher': DockerImagePublisherRegistry(drc_leap, "leap-15.0", ["leap-15"]),
+        },
+    }
 
-    archs_to_update = {}
+    # Parse args after defining the config - the available distros are included
+    # in the help output
+    parser = argparse.ArgumentParser(description="Docker image publish script",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("distros", metavar="distro", type=str, nargs="*",
+                        default=[key for key in config],
+                        help="Which distros to check for images to publish.")
 
-    for arch in tw_fetchers:
-        try:
-            print("Architecture %s" % (arch))
+    args = parser.parse_args()
 
-            current = tw_fetchers[arch].currentVersion()
-            print("Available version: %s" % (current))
+    success = True
 
-            released = tw_publisher.releasedDockerImageVersion(arch)
-            print("Released version: %s" % (released))
+    for distro in args.distros:
+        print("Handling %s" % distro)
 
-            if current != released:
-                archs_to_update[arch] = current
+        archs_to_update = {}
+        fetchers = config[distro]['fetchers']
+        publisher = config[distro]['publisher']
 
-        except Exception as e:
-            print("Exception during version fetching: %s" % e)
+        for arch in fetchers:
+            try:
+                print("\tArchitecture %s" % arch)
 
-    if not archs_to_update:
-        print("Nothing to do.")
-        return 0
+                current = fetchers[arch].currentVersion()
+                print("\t\tAvailable version: %s" % current)
 
-    if not tw_publisher.prepareReleasing():
-        print("Could not prepare the publishing")
-        return 1
+                released = publisher.releasedDockerImageVersion(arch)
+                print("\t\tReleased version: %s" % released)
 
-    for arch, version in archs_to_update.items():
-        try:
-            print("Updating %s image to version %s" % (arch, version))
-            tw_fetchers[arch].getDockerImage(lambda image_path: tw_publisher.addImage(version=version,
-                                                                                      arch=arch,
-                                                                                      image_path=image_path))
-        except DockerFetchException as dfe:
-            print("Could not fetch the image: %s" % dfe)
-            return 1
-        except DockerPublishException as dpe:
-            print("Could not publish the image: %s" % dpe)
-            return 1
+                if current != released:
+                    archs_to_update[arch] = current
+            except Exception as e:
+                print("\tException during version fetching: %s" % e)
 
-    if not tw_publisher.finishReleasing():
-        print("Could not publish the image")
-        return 1
+        if not archs_to_update:
+            print("\tNothing to do.")
+            continue
 
-    return 0
+        if not publisher.prepareReleasing():
+            print("\tCould not prepare the publishing")
+            success = False
+            continue
+
+        for arch, version in archs_to_update.items():
+            try:
+                print("\tUpdating %s image to version %s" % (arch, version))
+                fetchers[arch].getDockerImage(lambda image_path: publisher.addImage(version=version,
+                                                                                    arch=arch,
+                                                                                    image_path=image_path))
+            except DockerFetchException as dfe:
+                print("\tCould not fetch the image: %s" % dfe)
+                success = False
+                continue
+            except DockerPublishException as dpe:
+                print("\tCould not publish the image: %s" % dpe)
+                success = False
+                continue
+
+        if not publisher.finishReleasing():
+            print("\tCould not publish the image")
+            continue
+
+    return 0 if success else 1
 
 
 if __name__ == "__main__":
