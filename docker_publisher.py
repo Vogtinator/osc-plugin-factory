@@ -575,9 +575,8 @@ def run():
         publisher = config[distro]['publisher']
 
         for arch in fetchers:
+            print("\tArchitecture %s" % arch)
             try:
-                print("\tArchitecture %s" % arch)
-
                 current = fetchers[arch].currentVersion()
                 print("\t\tAvailable version: %s" % current)
 
@@ -587,7 +586,7 @@ def run():
                 if current != released:
                     archs_to_update[arch] = current
             except Exception as e:
-                print("\tException during version fetching: %s" % e)
+                print("\t\tException during version fetching: %s" % e)
 
         if not archs_to_update:
             print("\tNothing to do.")
@@ -599,17 +598,17 @@ def run():
             continue
 
         for arch, version in archs_to_update.items():
+            print("\tUpdating %s image to version %s" % (arch, version))
             try:
-                print("\tUpdating %s image to version %s" % (arch, version))
                 fetchers[arch].getDockerImage(lambda image_path: publisher.addImage(version=version,
                                                                                     arch=arch,
                                                                                     image_path=image_path))
             except DockerFetchException as dfe:
-                print("\tCould not fetch the image: %s" % dfe)
+                print("\t\tCould not fetch the image: %s" % dfe)
                 success = False
                 continue
             except DockerPublishException as dpe:
-                print("\tCould not publish the image: %s" % dpe)
+                print("\t\tCould not publish the image: %s" % dpe)
                 success = False
                 continue
 
