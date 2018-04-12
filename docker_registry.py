@@ -65,7 +65,7 @@ class DockerRegistryClient():
         scope_param = "&scope=".join([""] + [urllib.parse.quote(scope) for scope in self.scopes])
         response = requests.get("%s?service=%s%s" % (bearer_dict['realm'], bearer_dict['service'], scope_param),
                                 auth=(self.username, self.password))
-        self.token = response.json()["token"]
+        self.token = response.json()['token']
 
     def doHttpCall(self, method, url, **kwargs):
         """This method wraps the requested method from the requests module to
@@ -77,12 +77,12 @@ class DockerRegistryClient():
             url = self.url + url
 
         if "headers" not in kwargs:
-            kwargs["headers"] = {}
+            kwargs['headers'] = {}
 
         while True:
             resp = None
             if self.token is not None:
-                kwargs["headers"]["Authorization"] = "Bearer " + self.token
+                kwargs['headers']['Authorization'] = "Bearer " + self.token
 
             methods = {'POST': requests.post,
                        'GET': requests.get,
@@ -98,7 +98,7 @@ class DockerRegistryClient():
             if resp.status_code == 401 or resp.status_code == 403:
                 if try_update_token:
                     try_update_token = False
-                    self._updateToken(resp.headers["Www-Authenticate"])
+                    self._updateToken(resp.headers['Www-Authenticate'])
                     continue
 
             if resp.status_code > 400 and resp.status_code < 404:
@@ -124,7 +124,7 @@ class DockerRegistryClient():
             reference = "sha256:" + alg.hexdigest()
 
         resp = self.doHttpCall("PUT", "/v2/%s/manifests/%s" % (self.repository, reference),
-                               headers={'Content-Type': content_json["mediaType"]},
+                               headers={'Content-Type': content_json['mediaType']},
                                data=content)
 
         if resp.status_code != 201:
@@ -203,7 +203,7 @@ class DockerRegistryClient():
         # First request an upload "slot", we get an URL we can PUT to back
         upload_request = self.doHttpCall("POST", "/v2/%s/blobs/uploads/" % self.repository)
         if upload_request.status_code == 202:
-            location = upload_request.headers["Location"]
+            location = upload_request.headers['Location']
             upload = self.doHttpCall("PUT", location + "&digest=" + digest,
                                      data=content)
             return upload.status_code == 201
