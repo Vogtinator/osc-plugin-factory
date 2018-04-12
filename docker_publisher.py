@@ -544,14 +544,14 @@ def run():
                 'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-42.3/containers/aarch64/openSUSE-Leap-42.3-container-image"),
                 'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-42.3/containers/ppc64le/openSUSE-Leap-42.3-container-image"),
             },
-            'publisher': DockerImagePublisherRegistry(drc_leap, "leap-42.3", ["leap-42", "latest"]),
+            'publisher': DockerImagePublisherRegistry(drc_leap, "42.3", ["42", "latest"]),
         },
         'leap-15.0': {
             'fetchers': {
                 # No official release available yet - use OBS directly
                 'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Leap:15.0:Images/images/x86_64/opensuse-leap-image"),
             },
-            'publisher': DockerImagePublisherRegistry(drc_leap, "leap-15.0", ["leap-15"]),
+            'publisher': DockerImagePublisherRegistry(drc_leap, "15.0", ["15"]),
         },
     }
 
