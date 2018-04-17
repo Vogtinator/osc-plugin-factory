@@ -153,7 +153,7 @@ class DockerImagePublisherGit(DockerImagePublisher):
         # Read from git using cat-file to avoid expensive checkout.
         args = self.git_call + ["cat-file", "--textconv", "origin/%s:%s/%s/Dockerfile" % (self.git_branch, self.path, arch)]
         with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
-            version_regex = re.compile("^# Version: (.+)$")
+            version_regex = re.compile(r"^# Version: (.+)$")
             for line in p.stdout:
                 match = version_regex.match(line.decode('utf-8').strip())
                 if match:
@@ -196,7 +196,7 @@ ADD %s /
         targetfilename = "openSUSE-Tumbleweed-%s-%s.tar.xz" % (arch, version)
 
         # Parse the manifest to get the name of the root tar.xz
-        manifest = json.loads(open(image_path + '/manifest.json').read())
+        manifest = json.loads(open(image_path + "/manifest.json").read())
         layers = manifest[0]['Layers']
         if len(layers) != 1:
             raise DockerPublishException("Unexpected count of layers in the image")
@@ -345,7 +345,7 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
                 raise DockerPublishException("Could not upload an image layer")
 
         # Upload the manifest
-        manifest_content = json.dumps(manifest_v2).encode('utf-8')
+        manifest_content = json.dumps(manifest_v2).encode("utf-8")
         manifest_digest = self.dhc.uploadManifest(manifest_content)
 
         if manifest_digest is False:
@@ -454,7 +454,7 @@ class DockerImageFetcherOBS(DockerImageFetcher):
     def currentVersion(self):
         """Return {version}-Build{build} of the docker file."""
         filename = self._getFilename()
-        return re.match(".*((-[^-]+){2})\.docker\.tar\.xz", filename).group(1)[1:]
+        return re.match(r".*((-[^-]+){2})\.docker\.tar\.xz", filename).group(1)[1:]
 
     def getDockerImage(self, callback):
         """Download the tar and extract it"""
@@ -482,8 +482,8 @@ class DockerImageFetcherRepo(DockerImageFetcher):
         # For TW we ask the mirrorbrain server about the -Current redirection target
         meta4_xml = requests.get(self.versioned_redir + ".meta4")
         meta4 = xml.fromstring(meta4_xml.content)
-        filename = meta4.xpath("//m:metalink//m:file//@name", namespaces={'m': 'urn:ietf:params:xml:ns:metalink'})[0]
-        return re.search('Snapshot(\d+)-', filename).group(1)
+        filename = meta4.xpath("//m:metalink//m:file//@name", namespaces={'m': "urn:ietf:params:xml:ns:metalink"})[0]
+        return re.search(r"Snapshot(\d+)-", filename).group(1)
 
     def fetchPrimaryXml(self):
         repoindex_req = requests.get(self.repourl + "/repodata/repomd.xml")
