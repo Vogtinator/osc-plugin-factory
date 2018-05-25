@@ -442,11 +442,11 @@ class DockerImageFetcherOBS(DockerImageFetcher):
 
     def _getFilename(self):
         """Return the name of the binary at the URL with the filename ending in
-        .docker.tar.xz."""
+        .docker.tar."""
         binarylist_req = requests.get(self.url)
         binarylist = xml.fromstring(binarylist_req.content)
         for binary in binarylist.xpath("binary/@filename"):
-            if binary.endswith(".docker.tar.xz"):
+            if binary.endswith(".docker.tar"):
                 return binary
 
         raise DockerFetchException("No docker image built in the repository")
@@ -454,7 +454,7 @@ class DockerImageFetcherOBS(DockerImageFetcher):
     def currentVersion(self):
         """Return {version}-Build{build} of the docker file."""
         filename = self._getFilename()
-        return re.match(r".*((-[^-]+){2})\.docker\.tar\.xz", filename).group(1)[1:]
+        return re.match(".*((-[^-]+){2})\.docker\.tar", filename).group(1)[1:]
 
     def getDockerImage(self, callback):
         """Download the tar and extract it"""
@@ -462,7 +462,7 @@ class DockerImageFetcherOBS(DockerImageFetcher):
         with tempfile.NamedTemporaryFile() as tar_file:
             tar_file.write(requests.get(self.url + "/" + filename).content)
             with tempfile.TemporaryDirectory() as tar_dir:
-                # Extract the .tar.xz into the dir
+                # Extract the .tar into the dir
                 subprocess.call("tar -xaf '%s' -C '%s'" % (tar_file.name, tar_dir), shell=True)
                 return callback(tar_dir)
 
@@ -531,9 +531,9 @@ def run():
                                                  packagename="opensuse-tumbleweed-image",
                                                  arch="x86_64"),
                 # No release yet, so we'll have to take them from the OBS project directly
-                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_ARM/aarch64/opensuse-tumbleweed-image"),
-                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_PowerPC/ppc64le/opensuse-tumbleweed-image"),
-                's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_zSystems/s390x/opensuse-tumbleweed-image"),
+#                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_ARM/aarch64/opensuse-tumbleweed-image"),
+#                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_PowerPC/ppc64le/opensuse-tumbleweed-image"),
+#                's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_zSystems/s390x/opensuse-tumbleweed-image"),
             },
             'publisher': DockerImagePublisherRegistry(drc_tw, "latest"),
         },
@@ -544,7 +544,7 @@ def run():
                 'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-42.3/containers/aarch64/openSUSE-Leap-42.3-container-image"),
                 'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-42.3/containers/ppc64le/openSUSE-Leap-42.3-container-image"),
             },
-            'publisher': DockerImagePublisherRegistry(drc_leap, "42.3", ["42", "latest"]),
+            'publisher': DockerImagePublisherRegistry(drc_leap, "42.3", ["42"]),
         },
         'leap-15.0': {
             'fetchers': {
