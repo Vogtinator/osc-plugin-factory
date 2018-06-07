@@ -452,9 +452,10 @@ class DockerImageFetcherOBS(DockerImageFetcher):
         raise DockerFetchException("No docker image built in the repository")
 
     def currentVersion(self):
-        """Return {version}-Build{build} of the docker file."""
+        """Return {version}-?({flavor}-)Build{build} of the docker file."""
         filename = self._getFilename()
-        return re.match(".*((-[^-]+){2})\.docker\.tar", filename).group(1)[1:]
+        # Capture everything between arch and filename suffix
+        return re.match(r'[^.]*\.[^.]+-(.*)\.docker\.tar$', filename).group(1)
 
     def getDockerImage(self, callback):
         """Download the tar and extract it"""
