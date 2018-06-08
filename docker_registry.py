@@ -150,7 +150,6 @@ class DockerRegistryClient():
 
             return self.uploadManifest(content, reference)
 
-
     def getManifest(self, reference):
         """Get a (json-parsed) manifest with the given reference (digest or tag).
         If the manifest does not exist, return None. For other errors, False."""
