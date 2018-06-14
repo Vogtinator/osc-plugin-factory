@@ -550,7 +550,7 @@ def run():
         'leap-15.0': {
             'fetchers': {
                 # Not on download.opensuse.org - use OBS directly
-                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Leap:15.0:Images/images/x86_64/opensuse-leap-image"),
+                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Leap:15.0:Images/images/x86_64/opensuse-leap-image:docker"),
                 # Not built by the Ports, so use the devel prj
                 'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-15.0/containers_ports/aarch64/opensuse-leap-image:docker"),
                 'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-15.0/containers_ports/ppc64le/opensuse-leap-image:docker"),
