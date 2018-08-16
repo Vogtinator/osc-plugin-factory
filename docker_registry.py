@@ -181,12 +181,16 @@ class DockerRegistryClient():
 
         return resp.status_code == 202
 
-    def uploadBlob(self, filename):
-        """Upload the blob with the given filename (has to equal path + digest).
+    def uploadBlob(self, filename, digest=None):
+        """Upload the blob with the given filename and digest. If digest is None,
+        the basename has to equal the digest.
         Returns True if blob already exists or upload succeeded."""
-        digest = os.path.basename(filename)
+
+        if digest is None:
+            digest = os.path.basename(filename)
+
         if not digest.startswith("sha256:"):
-            raise Exception("Invalid filename")
+            raise Exception("Invalid digest")
 
         # Check whether the blob already exists - don't upload it needlessly.
         stat_request = self.doHttpCall("HEAD", "/v2/%s/blobs/%s" % (self.repository, digest))

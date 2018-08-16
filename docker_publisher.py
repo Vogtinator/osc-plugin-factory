@@ -302,27 +302,33 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
 
         return True
 
-    def getV2ManifestEntry(self, filename, mediaType):
-        """For V1 -> V2 schema conversion. filename's basename has to equal the digest"""
-        digest = os.path.basename(filename)
+    def getV2ManifestEntry(self, path, filename, mediaType):
+        """For V1 -> V2 schema conversion. filename has to contain the digest"""
+        digest = filename
+
+        if re.match(r"^[a-f0-9]{64}", digest):
+            digest = "sha256:" + os.path.splitext(digest)[0]
+
         if not digest.startswith("sha256"):
             raise DockerPublishException("Invalid manifest contents")
 
         return {'mediaType': mediaType,
-                'size': os.path.getsize(filename),
-                'digest': digest}
+                'size': os.path.getsize(path + "/" + filename),
+                'digest': digest,
+                'x-osdp-filename': filename}
 
     def convertV1ToV2Manifest(self, path, manifest_v1):
         """Converts the v1 manifest in manifest_v1 to a V2 manifest and returns it"""
 
         layers = []
-        for layer_filename in manifest_v1['Layers']:
-            layers += [self.getV2ManifestEntry(path + "/" + layer_filename,
+        # The order of layers changed in V1 -> V2
+        for layer_filename in manifest_v1['Layers'][::-1]:
+            layers += [self.getV2ManifestEntry(path, layer_filename,
                                                "application/vnd.docker.image.rootfs.diff.tar.gzip")]
 
         return {'schemaVersion': 2,
                 'mediaType': "application/vnd.docker.distribution.manifest.v2+json",
-                'config': self.getV2ManifestEntry(path + "/" + manifest_v1['Config'],
+                'config': self.getV2ManifestEntry(path, manifest_v1['Config'],
                                                   "application/vnd.docker.container.image.v1+json"),
                 'layers': layers}
 
@@ -335,13 +341,14 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
             manifest = json.load(manifest_file)
 
         manifest_v2 = self.convertV1ToV2Manifest(image_path, manifest[0])
-
         # Upload blobs
-        if not self.dhc.uploadBlob(image_path + "/" + manifest_v2['config']['digest']):
+        if not self.dhc.uploadBlob(image_path + "/" + manifest_v2['config']['x-osdp-filename'],
+                                   manifest_v2['config']['digest']):
             raise DockerPublishException("Could not upload the image config")
 
         for layer in manifest_v2['layers']:
-            if not self.dhc.uploadBlob(image_path + "/" + layer['digest']):
+            if not self.dhc.uploadBlob(image_path + "/" + layer['x-osdp-filename'],
+                                       layer['digest']):
                 raise DockerPublishException("Could not upload an image layer")
 
         # Upload the manifest
