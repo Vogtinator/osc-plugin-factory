@@ -608,12 +608,16 @@ def run():
             success = False
             continue
 
+        need_to_upload = False
+
         for arch, version in archs_to_update.items():
             print("\tUpdating %s image to version %s" % (arch, version))
             try:
                 fetchers[arch].getDockerImage(lambda image_path: publisher.addImage(version=version,
                                                                                     arch=arch,
                                                                                     image_path=image_path))
+                need_to_upload = True
+
             except DockerFetchException as dfe:
                 print("\t\tCould not fetch the image: %s" % dfe)
                 success = False
@@ -622,6 +626,11 @@ def run():
                 print("\t\tCould not publish the image: %s" % dpe)
                 success = False
                 continue
+
+        # If nothing got added to the publisher, don't try to upload it.
+        # For docker hub it'll just update the "last pushed" time without any change
+        if not need_to_upload:
+            continue
 
         if not publisher.finishReleasing():
             print("\tCould not publish the image")
