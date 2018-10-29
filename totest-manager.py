@@ -384,7 +384,7 @@ class ToTestBase(object):
             return None
 
         # docker container has no size limit
-        if re.match(r'opensuse-leap-image.*', package):
+        if re.match(r'opensuse-.*-image.*', package):
             return None
 
         if '-Addon-NonOss-ftp-ftp' in package:
@@ -724,6 +724,8 @@ class ToTestFactory(ToTestBase):
                      '000product:openSUSE-cd-mini-i586',
                      '000product:openSUSE-cd-mini-x86_64',
                      '000product:openSUSE-Tumbleweed-Kubic-dvd5-dvd-x86_64']
+
+    container_products = ['opensuse-tumbleweed-image:docker']
 
     ftp_products = ['000product:openSUSE-ftp-ftp-i586_x86_64',
                     '000product:openSUSE-Addon-NonOss-ftp-ftp-i586_x86_64']
