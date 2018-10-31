@@ -695,7 +695,12 @@ class ToTestFactory(ToTestBase):
                      '000product:openSUSE-dvd5-dvd-x86_64',
                      '000product:openSUSE-cd-mini-i586',
                      '000product:openSUSE-cd-mini-x86_64',
-                     '000product:openSUSE-Tumbleweed-Kubic-dvd5-dvd-x86_64']
+                     '000product:openSUSE-Tumbleweed-Kubic-dvd5-dvd-x86_64',
+                     'openSUSE-Tumbleweed-JeOS:MS-HyperV',
+                     'openSUSE-Tumbleweed-JeOS:OpenStack-Cloud',
+                     'openSUSE-Tumbleweed-JeOS:VMware',
+                     'openSUSE-Tumbleweed-JeOS:XEN',
+                     'openSUSE-Tumbleweed-JeOS:kvm-and-xen']
 
     ftp_products = ['000product:openSUSE-ftp-ftp-i586_x86_64',
                     '000product:openSUSE-Addon-NonOss-ftp-ftp-i586_x86_64']
