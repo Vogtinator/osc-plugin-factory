@@ -564,6 +564,16 @@ def run():
             },
             'publisher': DockerImagePublisherRegistry(drc_leap, "latest", ["15.0", "15"]),
         },
+        'leap-15.1': {
+            'fetchers': {
+                # Not on download.opensuse.org - use OBS directly
+                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/x86_64/opensuse-leap-image:docker"),
+                # Not there yet
+                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/aarch64/opensuse-leap-image:docker"),
+                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/ppc64le/opensuse-leap-image:docker"),
+            },
+            'publisher': DockerImagePublisherRegistry(drc_leap, "15.1", []),
+        },
     }
 
     # Parse args after defining the config - the available distros are included
