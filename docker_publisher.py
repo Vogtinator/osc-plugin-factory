@@ -29,7 +29,6 @@
 # It's also possible to push to a git repo for the official library.
 
 import argparse
-import copy
 import glob
 import json
 import os
@@ -259,9 +258,6 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
         self.aliases = aliases
         # Construct a new manifestlist for the tag.
         self.new_manifestlist = None
-        # Compare it with the released manifestlist after publishing
-        # to delete the superseded manifests
-        self.released_manifestlist = None
 
     def getDockerArch(self, arch):
         if arch not in self.MAP_ARCH_RPM_DOCKER:
@@ -287,11 +283,10 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
         return "0"
 
     def prepareReleasing(self):
-        if self.released_manifestlist is not None:
+        if self.new_manifestlist is not None:
             raise DockerPublishException("Did not finish publishing")
 
-        self.released_manifestlist = self.dhc.getManifest(self.tag)
-        self.new_manifestlist = copy.deepcopy(self.released_manifestlist)
+        self.new_manifestlist = self.dhc.getManifest(self.tag)
 
         # Generate an empty manifestlist
         if not self.new_manifestlist:
@@ -384,8 +379,6 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
         return True
 
     def finishReleasing(self):
-        released_manifestlist_digest = self.dhc.getManifestDigest(self.tag)
-
         # Generate the manifest content
         manifestlist_content = json.dumps(self.new_manifestlist).encode('utf-8')
 
@@ -398,22 +391,7 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
             if not self.dhc.uploadManifest(manifestlist_content, alias):
                 raise DockerPublishException("Could not push an manifest list alias")
 
-        # Delete the old manifest list
-        if released_manifestlist_digest is not False:
-            self.dhc.deleteManifest(released_manifestlist_digest)
-
-        # Delete superseded manifests
-        new_manifests = [manifest['digest'] for manifest in self.new_manifestlist['manifests']]
-        released_manifests = []
-        if self.released_manifestlist is not None:
-            released_manifests = [manifest['digest'] for manifest in self.released_manifestlist['manifests']]
-
-        for manifest in released_manifests:
-            if manifest not in new_manifests:
-                self.dhc.deleteManifest(manifest)
-
         self.new_manifestlist = None
-        self.released_manifestlist = None
 
         return True
 
