@@ -242,7 +242,8 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
     describe a tag. The list contains a manifest for each architecture.
     The manifest will be edited instead of replaced, which means if you don't
     call addImage for an architecture, the existing released image stays in place."""
-    MAP_ARCH_RPM_DOCKER = {'x86_64': "amd64",
+    MAP_ARCH_RPM_DOCKER = {'i586': "386",
+                           'x86_64': "amd64",
                            'armv7l': "arm",
                            'aarch64': "arm64",
                            'ppc64le': "ppc64le",
@@ -512,10 +513,9 @@ def run():
     config = {
         'tumbleweed': {
             'fetchers': {
-                'x86_64': DockerImageFetcherRepo(versioned_redir="http://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-DVD-x86_64-Current.iso",
-                                                 repourl="http://download.opensuse.org/tumbleweed/repo/oss",
-                                                 packagename="opensuse-tumbleweed-image",
-                                                 arch="x86_64"),
+                # Not on download.opensuse.org - use OBS directly
+                'i586': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/i586/opensuse-tumbleweed-image:docker"),
+                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/x86_64/opensuse-tumbleweed-image:docker"),
                 # No release yet, so we'll have to take them from the OBS project directly
                 'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_ARM/aarch64/opensuse-tumbleweed-image:docker"),
                 'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_PowerPC/ppc64le/opensuse-tumbleweed-image:docker"),
