@@ -35,12 +35,14 @@ import requests
 
 
 class DockerRegistryClient():
-    def __init__(self, url, username, password, repository):
+    def __init__(self, url, username, password, repository, push=True):
         self.url = url
         self.username = username
         self.password = password
         self.repository = repository
-        self.scopes = ["repository:%s:pull,push,delete" % repository]
+        self.scopes = ["repository:%s:pull" % repository]
+        if push:
+            self.scopes += ["repository:%s:push,delete" % repository]
         self.token = None
 
     class DockerRegistryError(Exception):
@@ -163,6 +165,33 @@ class DockerRegistryClient():
             return False
 
         return resp.json()
+
+    def getManifestRaw(self, reference):
+        """Get a manifest with the given reference (digest or tag).
+        If the manifest does not exist, return None. For other errors, False."""
+        resp = self.doHttpCall("GET", "/v2/%s/manifests/%s" % (self.repository, reference),
+                               headers={'Accept': "application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json"})
+
+        if resp.status_code == 404:
+            return None
+
+        if resp.status_code != 200:
+            return False
+
+        return resp.content
+
+    def getBlobRaw(self, reference):
+        """Get a manifest with the given reference (digest or tag).
+        If the manifest does not exist, return None. For other errors, False."""
+        resp = self.doHttpCall("GET", "/v2/%s/blobs/%s" % (self.repository, reference))
+
+        if resp.status_code == 404:
+            return None
+
+        if resp.status_code != 200:
+            return False
+
+        return resp.content
 
     def getManifestDigest(self, reference):
         """Return the digest of the manifest with the given reference.
