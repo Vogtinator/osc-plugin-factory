@@ -242,12 +242,13 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
     describe a tag. The list contains a manifest for each architecture.
     The manifest will be edited instead of replaced, which means if you don't
     call addImage for an architecture, the existing released image stays in place."""
-    MAP_ARCH_RPM_DOCKER = {'i586': "386",
-                           'x86_64': "amd64",
-                           'armv7l': "arm",
-                           'aarch64': "arm64",
-                           'ppc64le': "ppc64le",
-                           's390x': "s390x"}
+    MAP_ARCH_RPM_DOCKER = {'i586': ("386", None),
+                           'x86_64': ("amd64", None),
+                           'armv6l': ("arm", "v6"),
+                           'armv7l': ("arm", "v7"),
+                           'aarch64': ("arm64", None),
+                           'ppc64le': ("ppc64le", None),
+                           's390x': ("s390x", None)}
 
     def __init__(self, dhc, tag, aliases=[]):
         """Construct a DIPR by passing a DockerRegistryClient instance as dhc
@@ -267,7 +268,7 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
         return self.MAP_ARCH_RPM_DOCKER[arch]
 
     def releasedDockerImageVersion(self, arch):
-        docker_arch = self.getDockerArch(arch)
+        docker_arch, docker_variant = self.getDockerArch(arch)
 
         manifestlist = self.dhc.getManifest(self.tag)
 
@@ -276,6 +277,10 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
             return "0"
 
         for manifest in manifestlist['manifests']:
+            if docker_variant is not None:
+                if 'variant' not in manifest['platform'] or manifest['platform']['variant'] != docker_variant:
+                    continue
+
             if manifest['platform']['architecture'] == docker_arch:
                 if 'vnd-opensuse-version' in manifest:
                     return manifest['vnd-opensuse-version']
@@ -329,7 +334,7 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
                 'layers': layers}
 
     def addImage(self, version, arch, image_path):
-        docker_arch = self.getDockerArch(arch)
+        docker_arch, docker_variant = self.getDockerArch(arch)
 
         manifest = None
 
@@ -357,11 +362,17 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
         # Register the manifest in the list
         replaced = False
         for manifest in self.new_manifestlist['manifests']:
+            if 'variant' in manifest['platform'] and manifest['platform']['variant'] != docker_variant:
+                continue
+
             if manifest['platform']['architecture'] == docker_arch:
                 manifest['mediaType'] = manifest_v2['mediaType']
                 manifest['size'] = len(manifest_content)
                 manifest['digest'] = manifest_digest
                 manifest['vnd-opensuse-version'] = version
+                if docker_variant is not None:
+                    manifest['platform']['variant'] = docker_variant
+
                 replaced = True
 
         if not replaced:
@@ -375,6 +386,9 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
                             'os': "linux"
                             }
                         }
+            if docker_variant is not None:
+                manifest['platform']['variant'] = docker_variant
+
             self.new_manifestlist['manifests'] += [manifest]
 
         return True
@@ -516,10 +530,12 @@ def run():
                 # Not on download.opensuse.org - use OBS directly
                 'i586': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/i586/opensuse-tumbleweed-image:docker"),
                 'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/x86_64/opensuse-tumbleweed-image:docker"),
+                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/aarch64/opensuse-tumbleweed-image:docker"),
+                'armv7l': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/armv7l/opensuse-tumbleweed-image:docker"),
+                'armv6l': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/armv6l/opensuse-tumbleweed-image:docker"),
                 # No release yet, so we'll have to take them from the OBS project directly
-                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_ARM/aarch64/opensuse-tumbleweed-image:docker"),
-                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_PowerPC/ppc64le/opensuse-tumbleweed-image:docker"),
-                's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:Containers/container_zSystems/s390x/opensuse-tumbleweed-image:docker"),
+                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:PowerPC:ToTest/containers/ppc64le/opensuse-tumbleweed-image:docker"),
+                's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:zSystems:ToTest/containers/s390x/opensuse-tumbleweed-image:docker"),
             },
             'publisher': DockerImagePublisherRegistry(drc_tw, "latest"),
         },
