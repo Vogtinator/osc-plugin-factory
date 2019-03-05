@@ -9,5 +9,4 @@ ADD valgrind-3.14.0-4.2.x86_64.rpm
 RUN rpm -i valgrind-3.14.0-4.2.x86_64.rpm
 
 RUN uname -a
-RUN zypper -n in valgrind
-RUN valgrind zypper -nv dup
+RUN valgrind zypper -n -vvv in valgrind
