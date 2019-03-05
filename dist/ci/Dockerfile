@@ -9,7 +9,10 @@ ADD valgrind-3.14.0-4.2.x86_64.rpm /
 RUN rpm -i /valgrind-3.14.0-4.2.x86_64.rpm
 RUN uname -a
 
+RUN zypper -nv in libzypp glibc libcurl4 zypper || :
+RUN rm -rf /tmp/* /var/tmp/* /var/cache/* /var/log/*
+RUN valgrind --exit-on-first-error=yes --error-exitcode=42 zypper -n -vvv ref -f
+
 RUN zypper -nv dup || :
 RUN rm -rf /tmp/* /var/tmp/* /var/cache/* /var/log/*
-RUN valgrind zypper -n -vvv ref -f
-RUN valgrind zypper -n -vvv in --force valgrind
+RUN valgrind --exit-on-first-error=yes --error-exitcode=42 zypper -n -vvv ref -f
