@@ -10,13 +10,9 @@ RUN rpm -i /valgrind-3.14.0-4.2.x86_64.rpm
 RUN uname -a
 
 RUN zypper -n in libzypp libcurl4 zypper
-RUN zypper -n -vvv ref -f
-RUN valgrind zypper -n -vvv in --force valgrind
-
 RUN zypper -n in file-magic gpg2 libassuan0 libcrypt1 libdw1 libebl-plugins libelf1 libmagic1
-RUN valgrind zypper -n -vvv ref -f
-RUN valgrind zypper -n -vvv in --force valgrind
-
 RUN zypper -n in openSUSE-release openSUSE-release-ftp
+
+RUN zypper -v dup
 RUN valgrind zypper -n -vvv ref -f
-RUN valgrind zypper -n -vvv in --force valgrind
+
