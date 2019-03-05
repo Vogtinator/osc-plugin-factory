@@ -9,18 +9,18 @@ ADD valgrind-3.14.0-4.2.x86_64.rpm /
 RUN rpm -i /valgrind-3.14.0-4.2.x86_64.rpm
 RUN uname -a
 
-RUN zypper -n in libzypp
+RUN zypper -n in libzypp libcurl4 zypper
 RUN valgrind zypper -n -vvv ref -f
 RUN valgrind zypper -n -vvv in --force valgrind
 
-RUN zypper -n in libcurl4
+RUN zypper -n in libidn2-4 -libidn2-0
 RUN valgrind zypper -n -vvv ref -f
 RUN valgrind zypper -n -vvv in --force valgrind
 
-RUN zypper -n in zypper
+RUN zypper -n in file-magic gpg2 libassuan0 libcrypt1 libdw1 libebl-plugins libelf1 libmagic1
 RUN valgrind zypper -n -vvv ref -f
 RUN valgrind zypper -n -vvv in --force valgrind
 
-RUN zypper -n in libmagic1
+RUN zypper -n in openSUSE-release openSUSE-release-ftp
 RUN valgrind zypper -n -vvv ref -f
 RUN valgrind zypper -n -vvv in --force valgrind
