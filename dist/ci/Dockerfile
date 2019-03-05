@@ -10,4 +10,6 @@ RUN rpm -i /valgrind-3.14.0-4.2.x86_64.rpm
 RUN uname -a
 
 RUN zypper -nv dup
+RUN rm -rf /tmp/* /var/tmp/* /var/cache/* /var/log/*
 RUN valgrind zypper -n -vvv ref -f
+RUN valgrind zypper -n -vvv in --force valgrind
