@@ -11,4 +11,13 @@ ADD valgrind-3.14.0-4.2.x86_64.rpm /
 RUN rpm -i /valgrind-3.14.0-4.2.x86_64.rpm
 
 RUN uname -a
+RUN valgrind zypper -n -vvv ref -f
 RUN valgrind zypper -n -vvv in valgrind
+
+RUN zypper in -n in libcurl4
+RUN valgrind zypper -n -vvv ref -f
+RUN valgrind zypper -n -vvv in --force valgrind
+
+RUN zypper in -n in zypper
+RUN valgrind zypper -n -vvv ref -f
+RUN valgrind zypper -n -vvv in --force valgrind
