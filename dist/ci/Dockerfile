@@ -6,7 +6,7 @@ MAINTAINER Jimmy Berry <jberry@suse.com>
 LABEL akjsdhfiuv1zb8o07v2398u1=oihonpqbiuve
 
 RUN uname -a
-RUN zypper in valgrind
+RUN zypper -n in valgrind
 RUN zypper -nv dup
 RUN zypper -n ref -f || true
 RUN valgrind zypper -n ref -f
