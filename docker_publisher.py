@@ -436,14 +436,40 @@ class DockerImageFetcherURL(DockerImageFetcher):
 
 class DockerImageFetcherOBS(DockerImageFetcher):
     """Uses the OBS API to access the build artifacts.
-    Url has to be https://build.opensuse.org/public/build/<project>/<repo>/<arch>/<pkgname>"""
-    def __init__(self, url):
+    Url has to be https://build.opensuse.org/public/build/<project>/<repo>/<arch>/<pkgname>
+    If maintenance_release is True, it picks the buildcontainer released last with that name.
+    e.g. for "foo" it would pick "foo.2019" instead of "foo" or "foo.2018"."""
+    def __init__(self, url, maintenance_release=False):
         self.url = url
+        self.newest_release_url = None
+        if not maintenance_release:
+            self.newest_release_url = url
+
+    def _isMaintenanceReleaseOf(self, release, source):
+        """Returns whether release describes a maintenance release of source.
+        E.g. "foo.2019", "foo" -> True, "foo", "foo" -> True, "foo", "bar" -> False"""
+        if release == source:
+            return True
+
+        sourcebuildflavor = source.split(":")[1] if ":" in source else None
+        releasebuildflavor = release.split(":")[1] if ":" in release else None
+        return sourcebuildflavor == releasebuildflavor and release.startswith(source.split(":")[0] + ".")
+
+    def _getNewestReleaseUrl(self):
+        if self.newest_release_url is None:
+            buildcontainername = self.url.split("/")[-1]
+            prjurl = self.url + "/.."
+            buildcontainerlist_req = requests.get(prjurl)
+            buildcontainerlist = xml.fromstring(buildcontainerlist_req.content)
+            releases = [entry for entry in buildcontainerlist.xpath("entry/@name") if self._isMaintenanceReleaseOf(entry, buildcontainername)]
+            releases.sort()
+            self.newest_release_url = prjurl + "/" + releases[0]
+        return self.newest_release_url
 
     def _getFilename(self):
         """Return the name of the binary at the URL with the filename ending in
         .docker.tar."""
-        binarylist_req = requests.get(self.url)
+        binarylist_req = requests.get(self._getNewestReleaseUrl())
         binarylist = xml.fromstring(binarylist_req.content)
         for binary in binarylist.xpath("binary/@filename"):
             if binary.endswith(".docker.tar"):
@@ -461,7 +487,7 @@ class DockerImageFetcherOBS(DockerImageFetcher):
         """Download the tar and extract it"""
         filename = self._getFilename()
         with tempfile.NamedTemporaryFile() as tar_file:
-            tar_file.write(requests.get(self.url + "/" + filename).content)
+            tar_file.write(requests.get(self.newest_release_url + "/" + filename).content)
             with tempfile.TemporaryDirectory() as tar_dir:
                 # Extract the .tar into the dir
                 subprocess.call("tar -xaf '%s' -C '%s'" % (tar_file.name, tar_dir), shell=True)
@@ -528,11 +554,11 @@ def run():
         'tumbleweed': {
             'fetchers': {
                 # Not on download.opensuse.org - use OBS directly
-                'i586': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/i586/opensuse-tumbleweed-image:docker"),
-                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/x86_64/opensuse-tumbleweed-image:docker"),
-                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/aarch64/opensuse-tumbleweed-image:docker"),
-                'armv7l': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/armv7l/opensuse-tumbleweed-image:docker"),
-                'armv6l': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/armv6l/opensuse-tumbleweed-image:docker"),
+                'i586': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/i586/opensuse-tumbleweed-image:docker", maintenance_release=True),
+                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/x86_64/opensuse-tumbleweed-image:docker", maintenance_release=True),
+                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/aarch64/opensuse-tumbleweed-image:docker", maintenance_release=True),
+                'armv7l': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/armv7l/opensuse-tumbleweed-image:docker", maintenance_release=True),
+                'armv6l': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/armv6l/opensuse-tumbleweed-image:docker", maintenance_release=True),
                 # No release yet, so we'll have to take them from the OBS project directly
                 'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:PowerPC:ToTest/containers/ppc64le/opensuse-tumbleweed-image:docker"),
                 's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:zSystems:ToTest/containers/s390x/opensuse-tumbleweed-image:docker"),
@@ -561,10 +587,10 @@ def run():
         'leap-15.1': {
             'fetchers': {
                 # Not on download.opensuse.org - use OBS directly
-                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/x86_64/opensuse-leap-image:docker"),
+                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/x86_64/opensuse-leap-image:docker", maintenance_release=True),
                 # Not there yet
-                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/aarch64/opensuse-leap-image:docker"),
-                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/ppc64le/opensuse-leap-image:docker"),
+                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/aarch64/opensuse-leap-image:docker", maintenance_release=True),
+                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/ppc64le/opensuse-leap-image:docker", maintenance_release=True),
             },
             'publisher': DockerImagePublisherRegistry(drc_leap, "15.1", []),
         },
