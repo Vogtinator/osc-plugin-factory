@@ -463,7 +463,14 @@ class DockerImageFetcherOBS(DockerImageFetcher):
             buildcontainerlist = xml.fromstring(buildcontainerlist_req.content)
             releases = [entry for entry in buildcontainerlist.xpath("entry/@name") if self._isMaintenanceReleaseOf(entry, buildcontainername)]
             releases.sort()
-            self.newest_release_url = prjurl + "/" + releases[0]
+            # Pick the first one with binaries
+            for release in releases:
+                self.newest_release_url = prjurl + "/" + release
+                try:
+                    self._getFilename()
+                    break
+                except DockerFetchException as exc:
+                    continue
         return self.newest_release_url
 
     def _getFilename(self):
