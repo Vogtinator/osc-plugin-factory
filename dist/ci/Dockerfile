@@ -30,4 +30,5 @@ RUN LD_PRELOAD=libasan.so.5.0.0 zypper -n -vvv ref -f || :
 ADD libzypp-17.11.2-7.1.x86_64.rpm /
 RUN rpm -Uvh --nodigest --nosignature /libzypp-17.11.2-7.1.x86_64.rpm
 RUN rm -rf /tmp/* /var/tmp/* /var/cache/* /var/log/*
-RUN LD_PRELOAD=libasan.so.5.0.0 valgrind --exit-on-first-error=yes --error-exitcode=42 zypper -n -vvv ref -f || :
+RUN LD_PRELOAD=libasan.so.5.0.0 zypper -n -vvv ref -f || :
+#RUN LD_PRELOAD=libasan.so.5.0.0 valgrind --exit-on-first-error=yes --error-exitcode=42 zypper -n -vvv ref -f || :
