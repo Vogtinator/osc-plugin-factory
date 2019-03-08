@@ -23,11 +23,11 @@ RUN rm -rf /tmp/* /var/tmp/* /var/cache/* /var/log/*
 RUN valgrind --exit-on-first-error=yes --error-exitcode=42 zypper -n -vvv ref -f || :
 
 ADD libcurl4-7.64.0-257.1.x86_64.rpm /
-RUN rpm -i --nodigest --nosignature /libcurl4-7.64.0-257.1.x86_64.rpm
+RUN rpm -Uvh --nodigest --nosignature /libcurl4-7.64.0-257.1.x86_64.rpm
 RUN rm -rf /tmp/* /var/tmp/* /var/cache/* /var/log/*
 RUN zypper -n -vvv ref -f || :
 
 ADD libzypp-17.11.2-7.1.x86_64.rpm /
-RUN rpm -i --nodigest --nosignature /libzypp-17.11.2-7.1.x86_64.rpm
+RUN rpm -Uvh --nodigest --nosignature /libzypp-17.11.2-7.1.x86_64.rpm
 RUN rm -rf /tmp/* /var/tmp/* /var/cache/* /var/log/*
 RUN valgrind --exit-on-first-error=yes --error-exitcode=42 zypper -n -vvv ref -f || :
