@@ -447,10 +447,7 @@ class DockerImageFetcherOBS(DockerImageFetcher):
 
     def _isMaintenanceReleaseOf(self, release, source):
         """Returns whether release describes a maintenance release of source.
-        E.g. "foo.2019", "foo" -> True, "foo", "foo" -> True, "foo", "bar" -> False"""
-        if release == source:
-            return True
-
+        E.g. "foo.2019", "foo" -> True, "foo-asdf", "foo" -> False"""
         sourcebuildflavor = source.split(":")[1] if ":" in source else None
         releasebuildflavor = release.split(":")[1] if ":" in release else None
         return sourcebuildflavor == releasebuildflavor and release.startswith(source.split(":")[0] + ".")
@@ -464,13 +461,14 @@ class DockerImageFetcherOBS(DockerImageFetcher):
             releases = [entry for entry in buildcontainerlist.xpath("entry/@name") if self._isMaintenanceReleaseOf(entry, buildcontainername)]
             releases.sort()
             # Pick the first one with binaries
-            for release in releases:
+            for release in releases[::-1] + [buildcontainername]:
                 self.newest_release_url = prjurl + "/" + release
                 try:
                     self._getFilename()
                     break
                 except DockerFetchException as exc:
                     continue
+
         return self.newest_release_url
 
     def _getFilename(self):
