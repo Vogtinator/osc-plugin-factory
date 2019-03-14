@@ -1,7 +1,7 @@
 # https://docs.docker.com/engine/reference/builder/
 # Used for TEST_SUITE=distribution and deployment to OBS.
 
-FROM opensuse/tumbleweed
+FROM registry.opensuse.org/opensuse/tumbleweed
 MAINTAINER Jimmy Berry <jberry@suse.com>
 
 ADD valgrind-3.14.0-4.2.x86_64.rpm /
