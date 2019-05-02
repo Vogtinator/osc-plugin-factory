@@ -255,7 +255,7 @@ class Project(object):
         self.remove()
 
 class Package(object):
-    def __init__(self, name, project):
+    def __init__(self, name, project, devel_project=None):
         self.name = name
         self.project = project
 
@@ -264,6 +264,11 @@ class Package(object):
               <title></title>
               <description></description>
             </package>""".format(self.name, self.project.name)
+
+	if devel_project:
+            root = ET.fromstring(meta)
+            ET.SubElement(root, 'devel', { 'project': devel_project })
+            meta = ET.tostring(root)
 
         url = osc.core.make_meta_url('pkg', (self.project.name, self.name), APIURL)
         osc.core.http_PUT(url, data=meta)
