@@ -14,5 +14,5 @@ done
 
 cd /code
 for file in tests/*_tests.py; do
-  run_as_tester nosetests-2.7 -s $file
+  run_as_tester nosetests -s $file
 done
