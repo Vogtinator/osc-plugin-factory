@@ -185,7 +185,7 @@ class TestApiCalls(OBSLocal.TestCase):
         wf.api.create_package_container('openSUSE:Factory:Staging:B', 'wine')
 
         url = wf.api.makeurl(['source', 'openSUSE:Factory:Staging:B', 'wine', '_meta'])
-        self.assertEqual(osc.core.http_GET(url).read(), '<package name="wine" project="openSUSE:Factory:Staging:B">\n  <title/>\n  <description/>\n</package>\n')
+        self.assertEqual(string(osc.core.http_GET(url).read()), '<package name="wine" project="openSUSE:Factory:Staging:B">\n  <title/>\n  <description/>\n</package>\n')
 
         wf.api.create_package_container('openSUSE:Factory:Staging:B', 'wine', disable_build=True)
         m = '<package name="wine" project="openSUSE:Factory:Staging:B">\n  <title/>\n  <description/>\n  <build>\n    <disable/>\n  </build>\n</package>\n'
