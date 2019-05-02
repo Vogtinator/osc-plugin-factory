@@ -298,7 +298,7 @@ class Package(object):
     def create_commit(self, text=None):
         url = osc.core.makeurl(APIURL, ['source', self.project.name, self.name, 'README'])
         if not text:
-            text = ''.join([random.choice(string.letters) for i in range(40)])
+            text = ''.join([random.choice(string.ascii_letters) for i in range(40)])
         osc.core.http_PUT(url, data=text)
 
 class Request(object):
