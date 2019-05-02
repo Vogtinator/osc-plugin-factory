@@ -9,4 +9,7 @@ RUN zypper in -y osc python2-nose python2-httpretty python2-pyxdg python2-PyYAML
 
 RUN zypper in -y libxml2-tools curl
 
+RUN zypper in -y sudo 
+
+RUN usermod tester -d /code/tests/home
 COPY run_as_tester /usr/bin
