@@ -30,7 +30,7 @@ services:
     command: chroot --userspec=obsrun / /usr/lib/obs/server/bs_servicedispatch
   test:
     image: testing
-    depends_on: 
+    depends_on:
       - api
     volumes:
       - "../..:/code"

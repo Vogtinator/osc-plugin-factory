@@ -1,6 +1,6 @@
 #! /bin/sh
 
-set -e 
+set -e
 
 # This script is run from docker-compose within test container
 /usr/sbin/usermod -u $(stat -c %u /code/LICENSE) tester
