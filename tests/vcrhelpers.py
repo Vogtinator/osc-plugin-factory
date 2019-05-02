@@ -265,7 +265,7 @@ class Package(object):
               <description></description>
             </package>""".format(self.name, self.project.name)
 
-	if devel_project:
+        if devel_project:
             root = ET.fromstring(meta)
             ET.SubElement(root, 'devel', { 'project': devel_project })
             meta = ET.tostring(root)
@@ -293,6 +293,7 @@ class Package(object):
         except HTTPError:
             # only cleanup
             pass
+        self.project = None
 
     def create_commit(self, text=None):
         url = osc.core.makeurl(APIURL, ['source', self.project.name, self.name, 'README'])
