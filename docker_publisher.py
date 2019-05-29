@@ -166,6 +166,7 @@ class DockerImagePublisherGit(DockerImagePublisher):
 MAINTAINER Fabian Vogt <fvogt@suse.com>
 # Version: %s
 ADD %s /
+CMD ["/bin/bash"]
 """ % (version, filename)
 
     def prepareReleasing(self):
@@ -192,7 +193,7 @@ ADD %s /
             os.remove(file)
 
         # Re-compress it into the correct location and format
-        targetfilename = "openSUSE-Tumbleweed-%s-%s.tar.xz" % (arch, version)
+        targetfilename = "openSUSE-Leap-%s-%s.tar.xz" % (arch, version)
 
         # Parse the manifest to get the name of the root tar.xz
         manifest = json.loads(open(image_path + "/manifest.json").read())
@@ -552,53 +553,15 @@ class DockerImageFetcherRepo(DockerImageFetcher):
 
 
 def run():
-    drc_tw = docker_registry.DockerRegistryClient(os.environ['REGISTRY'], os.environ['REGISTRY_USER'], os.environ['REGISTRY_PASSWORD'], os.environ['REGISTRY_REPO_TW'])
-    drc_leap = docker_registry.DockerRegistryClient(os.environ['REGISTRY'], os.environ['REGISTRY_USER'], os.environ['REGISTRY_PASSWORD'], os.environ['REGISTRY_REPO_LEAP'])
-
     config = {
-        'tumbleweed': {
-            'fetchers': {
-                # Not on download.opensuse.org - use OBS directly
-                'i586': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/i586/opensuse-tumbleweed-image:docker", maintenance_release=True),
-                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/x86_64/opensuse-tumbleweed-image:docker", maintenance_release=True),
-                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/aarch64/opensuse-tumbleweed-image:docker", maintenance_release=True),
-                'armv7l': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/armv7l/opensuse-tumbleweed-image:docker", maintenance_release=True),
-                'armv6l': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/armv6l/opensuse-tumbleweed-image:docker", maintenance_release=True),
-                # No release yet, so we'll have to take them from the OBS project directly
-                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:PowerPC:ToTest/containers/ppc64le/opensuse-tumbleweed-image:docker"),
-                's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Factory:zSystems:ToTest/containers/s390x/opensuse-tumbleweed-image:docker"),
-            },
-            'publisher': DockerImagePublisherRegistry(drc_tw, "latest"),
-        },
-        'leap-42.3': {
+        'leap-42.3-git': {
             'fetchers': {
                 # No officially built images available - use the devel prj
                 'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-42.3/containers/x86_64/openSUSE-Leap-42.3-container-image:docker"),
                 'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-42.3/containers/aarch64/openSUSE-Leap-42.3-container-image:docker"),
                 'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-42.3/containers/ppc64le/openSUSE-Leap-42.3-container-image:docker"),
             },
-            'publisher': DockerImagePublisherRegistry(drc_leap, "42.3", ["42"]),
-        },
-        'leap-15.0': {
-            'fetchers': {
-                # Not on download.opensuse.org - use OBS directly
-                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Leap:15.0:Images:ToTest/images/x86_64/opensuse-leap-image:docker"),
-                # Not built by the Ports, so use the devel prj
-                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-15.0/containers_ports/aarch64/opensuse-leap-image:docker"),
-                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-15.0/containers_ports/ppc64le/opensuse-leap-image:docker"),
-            },
-            'publisher': DockerImagePublisherRegistry(drc_leap, "15.0", []),
-        },
-        'leap-15.1': {
-            'fetchers': {
-                # Not on download.opensuse.org - use OBS directly
-                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/x86_64/opensuse-leap-image:docker", maintenance_release=True),
-                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/aarch64/opensuse-leap-image:docker", maintenance_release=True),
-                'armv7l': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/armv7l/opensuse-leap-image:docker", maintenance_release=True),
-                # Not there yet
-                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/ppc64le/opensuse-leap-image:docker", maintenance_release=True),
-            },
-            'publisher': DockerImagePublisherRegistry(drc_leap, "latest", ["15.1", "15"]),
+            'publisher': DockerImagePublisherGit("/tmp/docker-containers-build", "openSUSE-Leap-42.3"),
         },
     }
 
