@@ -587,17 +587,18 @@ def run():
                 'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-15.0/containers_ports/aarch64/opensuse-leap-image:docker"),
                 'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-15.0/containers_ports/ppc64le/opensuse-leap-image:docker"),
             },
-            'publisher': DockerImagePublisherRegistry(drc_leap, "latest", ["15.0", "15"]),
+            'publisher': DockerImagePublisherRegistry(drc_leap, "15.0", []),
         },
         'leap-15.1': {
             'fetchers': {
                 # Not on download.opensuse.org - use OBS directly
                 'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/x86_64/opensuse-leap-image:docker", maintenance_release=True),
-                # Not there yet
                 'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/aarch64/opensuse-leap-image:docker", maintenance_release=True),
+                'armv7l': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/armv7l/opensuse-leap-image:docker", maintenance_release=True),
+                # Not there yet
                 'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.1/containers/ppc64le/opensuse-leap-image:docker", maintenance_release=True),
             },
-            'publisher': DockerImagePublisherRegistry(drc_leap, "15.1", []),
+            'publisher': DockerImagePublisherRegistry(drc_leap, "latest", ["15.1", "15"]),
         },
     }
 
