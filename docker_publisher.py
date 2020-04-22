@@ -246,7 +246,7 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
                            'x86_64': ("amd64", None),
                            'armv6l': ("arm", "v6"),
                            'armv7l': ("arm", "v7"),
-                           'aarch64': ("arm64", None),
+                           'aarch64': ("arm64", "v8"),
                            'ppc64le': ("ppc64le", None),
                            's390x': ("s390x", None)}
 
