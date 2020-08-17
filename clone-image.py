@@ -1,4 +1,5 @@
 import os
+import os.path
 import sys
 from docker_registry import DockerRegistryClient
 
@@ -22,8 +23,9 @@ if "manifests" not in manifestlist:
 
     for layer in manifestlist["fsLayers"]:
         print(layer)
-        with open(layer["blobSum"], "wb") as layer_file:
-            layer_file.write(dc_source.getBlobRaw(layer["blobSum"]))
+        if not os.path.isfile(layer["blobSum"]):
+            with open(layer["blobSum"], "wb") as layer_file:
+                layer_file.write(dc_source.getBlobRaw(layer["blobSum"]))
 
     sys.exit(0)
 
@@ -41,8 +43,9 @@ for manifestentry in manifestlist["manifests"]:
 
     for layer in manifest["layers"]:
         print(layer)
-        with open(layer["digest"], "wb") as layer_file:
-            layer_file.write(dc_source.getBlobRaw(layer["digest"]))
+        if not os.path.isfile(layer["digest"]):
+            with open(layer["digest"], "wb") as layer_file:
+                layer_file.write(dc_source.getBlobRaw(layer["digest"]))
 
         if dest is not None:
             dc_dest.uploadBlob(layer["digest"], layer["digest"])
