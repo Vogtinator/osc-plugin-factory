@@ -258,6 +258,9 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
         self.dhc = dhc
         self.tag = tag
         self.aliases = aliases
+        # The manifestlist for the tag is only downloaded if this cache is empty,
+        # so needs to be set to None to force a redownload.
+        self.cached_manifestlist = None
         # Construct a new manifestlist for the tag.
         self.new_manifestlist = None
 
@@ -267,10 +270,16 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
 
         return self.MAP_ARCH_RPM_DOCKER[arch]
 
+    def _getManifestlist(self):
+        if self.cached_manifestlist is None:
+            self.cached_manifestlist = self.dhc.getManifest(self.tag)
+
+        return self.cached_manifestlist
+
     def releasedDockerImageVersion(self, arch):
         docker_arch, docker_variant = self.getDockerArch(arch)
 
-        manifestlist = self.dhc.getManifest(self.tag)
+        manifestlist = self._getManifestlist()
 
         if manifestlist is None:
             # No manifest -> force outdated version
@@ -292,7 +301,7 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
         if self.new_manifestlist is not None:
             raise DockerPublishException("Did not finish publishing")
 
-        self.new_manifestlist = self.dhc.getManifest(self.tag)
+        self.new_manifestlist = self._getManifestlist()
 
         # Generate an empty manifestlist
         if not self.new_manifestlist:
@@ -407,6 +416,7 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
                 raise DockerPublishException("Could not push an manifest list alias")
 
         self.new_manifestlist = None
+        self.cached_manifestlist = None # force redownload
 
         return True
 
