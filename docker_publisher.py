@@ -406,14 +406,14 @@ class DockerImagePublisherRegistry(DockerImagePublisher):
         # Generate the manifest content
         manifestlist_content = json.dumps(self.new_manifestlist).encode('utf-8')
 
-        # Push the new manifest list
-        if not self.dhc.uploadManifest(manifestlist_content, self.tag):
-            raise DockerPublishException("Could not upload the new manifest list")
-
         # Push the aliases
         for alias in self.aliases:
             if not self.dhc.uploadManifest(manifestlist_content, alias):
                 raise DockerPublishException("Could not push an manifest list alias")
+
+        # Push the new manifest list
+        if not self.dhc.uploadManifest(manifestlist_content, self.tag):
+            raise DockerPublishException("Could not upload the new manifest list")
 
         self.new_manifestlist = None
         self.cached_manifestlist = None # force redownload
