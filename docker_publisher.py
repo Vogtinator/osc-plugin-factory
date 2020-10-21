@@ -603,6 +603,15 @@ def run():
             },
             'publisher': DockerImagePublisherRegistry(drc_leap, "latest", ["15.2", "15"]),
         },
+        'leap-15.2.1': {
+            'fetchers': {
+                'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.2.1/containers/x86_64/opensuse-leap-image:docker", maintenance_release=True),
+                'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.2.1/containers/aarch64/opensuse-leap-image:docker", maintenance_release=True),
+                'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.2.1/containers/ppc64le/opensuse-leap-image:docker", maintenance_release=True),
+                's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.2.1/containers/s390x/opensuse-leap-image:docker", maintenance_release=True),
+            },
+            'publisher': DockerImagePublisherRegistry(drc_leap, "15.2.1"),
+        },
     }
 
     # Parse args after defining the config - the available distros are included
