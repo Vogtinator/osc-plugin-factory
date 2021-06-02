@@ -601,7 +601,7 @@ def run():
                 #'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.2/containers/ppc64le/opensuse-leap-image:docker", maintenance_release=True),
                 #'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/Virtualization:containers:images:openSUSE-Leap-15.2/containers_ports/ppc64le/opensuse-leap-image:docker"),
             },
-            'publisher': DockerImagePublisherRegistry(drc_leap, "latest", ["15.2", "15"]),
+            'publisher': DockerImagePublisherRegistry(drc_leap, "15.2"),
         },
         'leap-15.3': {
             'fetchers': {
@@ -610,7 +610,7 @@ def run():
                 'ppc64le': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.3/containers/ppc64le/opensuse-leap-image:docker", maintenance_release=True),
                 's390x': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Leap:15.3/containers/s390x/opensuse-leap-image:docker", maintenance_release=True),
             },
-            'publisher': DockerImagePublisherRegistry(drc_leap, "15.3"),
+            'publisher': DockerImagePublisherRegistry(drc_leap, "latest", ["15.3", "15"]),
         },
     }
 
