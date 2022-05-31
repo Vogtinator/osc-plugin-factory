@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Copyright (c) 2018 SUSE LLC
+# Copyright (c) 2022 SUSE LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,23 +22,15 @@
 
 # This script's job is to listen for new releases of products with docker images
 # and publish those.
-# For Tumbleweed, the images are published within RPMs as part of the OSS repo,
-# so after openQA testing they need to be downloaded and extracted.
-# For Leap, the .tar.xz can be downloaded directly.
-# Both of those get pushed to the docker hub.
-# It's also possible to push to a git repo for the official library.
 
 import argparse
-import glob
 import json
 import os
 import re
 import requests
-import shutil
 import subprocess
 import sys
 import tempfile
-import zlib
 from lxml import etree as xml
 
 import docker_registry
@@ -46,40 +38,6 @@ import docker_registry
 REPOMD_NAMESPACES = {'md': "http://linux.duke.edu/metadata/common",
                      'repo': "http://linux.duke.edu/metadata/repo",
                      'rpm': "http://linux.duke.edu/metadata/rpm"}
-
-
-def recompress(source, dest):
-    """This function takes an archive as source and puts it to dest,
-    recompressing it into a different format"""
-    map_output = {'.xz':  "xz -c -",
-                  '.gz':  "gzip -c -",
-                  '.bz2': "bzip2 -c -"}
-
-    command_output = None
-    command_input = None
-
-    for suffix, command in map_output.items():
-        if dest.endswith(suffix):
-            command_output = command
-
-    map_input = {'application/x-xz':    "xz -cd",
-                 'application/x-gzip':  "gzip -cd",
-                 'application/x-bzip2': "bzip2 -cd"}
-
-    mime = subprocess.check_output(["file", "--mime-type", "-b", source]).decode("utf-8").strip()
-    if mime in map_input:
-        command_input = map_input[mime]
-
-    if command_output is None or command_input is None:
-        return False
-
-    # Same input and output format -> just copy
-    if command_output.split(' ')[0] == command_input.split(' ')[0]:
-        shutil.copyfile(source, dest)
-        return True
-
-    ret = subprocess.call("%s '%s' | %s > '%s'" % (command_input, source, command_output, dest), shell=True)
-    return ret == 0
 
 
 class DockerImagePublisher:
@@ -126,115 +84,6 @@ class DockerImageFetcher:
 
 class DockerFetchException(Exception):
     pass
-
-
-class DockerImagePublisherGit(DockerImagePublisher):
-    def __init__(self, git_path, git_branch, path="."):
-        """Initialize a DockerImagePublisherGit with:
-        @git_path: Path to the local git repo clone
-        @git_branch: Branch of the image
-        @path: Path to the directory within the branch which will contain a
-        directory for each architecture, containing:
-        - Dockerfile (including version in a comment)
-        - *.tar.xz: Images"""
-        self.git_path = git_path
-        self.git_branch = git_branch
-        self.path = path
-        self.updated_images = {}
-
-        self.git_call = ["git", "-C", self.git_path]
-
-        ret = subprocess.call(self.git_call + ["fetch", "origin"])
-        if ret != 0:
-            raise DockerFetchException("Could not fetch from origin")
-
-    def releasedDockerImageVersion(self, arch):
-        # Read from git using cat-file to avoid expensive checkout.
-        args = self.git_call + ["cat-file", "--textconv", "origin/%s:%s/%s/Dockerfile" % (self.git_branch, self.path, arch)]
-        with subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
-            version_regex = re.compile(r"^# Version: (.+)$")
-            for line in p.stdout:
-                match = version_regex.match(line.decode('utf-8').strip())
-                if match:
-                    return match.group(1)
-
-        return "0"
-
-    def generateDockerFile(self, version, filename):
-        """Return the contents of a docker file for the image"""
-        return """FROM scratch
-MAINTAINER Fabian Vogt <fvogt@suse.com>
-# Version: %s
-ADD %s /
-""" % (version, filename)
-
-    def prepareReleasing(self):
-        # Try to delete the old branch
-        try:
-            subprocess.call(self.git_call + ["checkout", "-q", "origin/%s" % (self.git_branch)])
-            subprocess.check_output(self.git_call + ["branch", "-q", "-D", self.git_branch],
-                                    stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError:
-            pass
-
-        # We do an orphan checkout to not carry the history around
-        ret = subprocess.call(self.git_call + ["checkout", "-q", "--orphan", self.git_branch])
-        if ret != 0:
-            raise DockerPublishException("Could not checkout git branch")
-
-        return True
-
-    def addImage(self, version, arch, image_path):
-        target_dir = "%s/%s/%s" % (self.git_path, self.path, arch)
-
-        # Remove all old files
-        for file in glob.glob(target_dir + "/*"):
-            os.remove(file)
-
-        # Re-compress it into the correct location and format
-        targetfilename = "openSUSE-Tumbleweed-%s-%s.tar.xz" % (arch, version)
-
-        # Parse the manifest to get the name of the root tar.xz
-        manifest = json.loads(open(image_path + "/manifest.json").read())
-        layers = manifest[0]['Layers']
-        if len(layers) != 1:
-            raise DockerPublishException("Unexpected count of layers in the image")
-
-        image_layer_file = image_path + "/" + layers[0]
-
-        if not recompress(image_layer_file, target_dir + "/" + targetfilename):
-            raise DockerPublishException("Could not repackage the root fs layer")
-
-        # Update the version number
-        try:
-            with open(target_dir + "/Dockerfile", "w") as dockerfile:
-                dockerfile.write(self.generateDockerFile(version, targetfilename))
-        except (IOError, OSError) as e:
-            raise DockerPublishException("Could not update the version file: %s" % e)
-
-        self.updated_images[arch] = version
-
-        return True
-
-    def finishReleasing(self):
-        ret = subprocess.call(self.git_call + ["add", "--all"])
-        if ret == 0:
-            message = "Update image to current version\n"
-            for arch, version in self.updated_images.items():
-                message += "\n- Update %s image to %s" % (arch, version)
-
-            ret = subprocess.call(self.git_call + ["commit", "-am", message])
-
-        if ret != 0:
-            raise DockerPublishException("Could not create commit")
-
-        self.updated_images = {}
-
-        ret = subprocess.call(self.git_call + ["push", "--force", "origin", self.git_branch])
-        if ret != 0:
-            raise DockerPublishException("Could not push")
-
-        return True
 
 
 class DockerImagePublisherRegistry(DockerImagePublisher):
@@ -509,58 +358,6 @@ class DockerImageFetcherOBS(DockerImageFetcher):
                 return callback(tar_dir)
 
 
-class DockerImageFetcherRepo(DockerImageFetcher):
-    """This can be used when the image is wrapped into an RPM and released as
-    part of the main repository, as it is the case for Tumbleweed.
-    The version equals the version of the product in the repository, determined
-    by the versioned_redir URL redirection target."""
-    def __init__(self, versioned_redir, repourl, packagename, arch):
-        self.versioned_redir = versioned_redir
-        self.repourl = repourl
-        self.packagename = packagename
-        self.arch = arch
-
-    def currentVersion(self):
-        # For TW we ask the mirrorbrain server about the -Current redirection target
-        meta4_xml = requests.get(self.versioned_redir + ".meta4")
-        meta4 = xml.fromstring(meta4_xml.content)
-        filename = meta4.xpath("//m:metalink//m:file//@name", namespaces={'m': "urn:ietf:params:xml:ns:metalink"})[0]
-        return re.search(r"Snapshot(\d+)-", filename).group(1)
-
-    def fetchPrimaryXml(self):
-        repoindex_req = requests.get(self.repourl + "/repodata/repomd.xml")
-        repoindex = xml.fromstring(repoindex_req.content)
-        path_primary = repoindex.xpath("string(./repo:data[@type='primary']/repo:location/@href)",
-                                       namespaces=REPOMD_NAMESPACES)
-        primary_req = requests.get(self.repourl + "/" + path_primary)
-        return zlib.decompress(primary_req.content, zlib.MAX_WBITS | 32)
-
-    def getRPMUrl(self, pkgname, arch):
-        primary_tree = xml.fromstring(self.fetchPrimaryXml())
-        pkgs = primary_tree.xpath("md:package[./md:name/text() = '%s']" % (pkgname),
-                                  namespaces=REPOMD_NAMESPACES)
-
-        for pkg in pkgs:
-            if arch in pkg.xpath("./md:arch/text()", namespaces=REPOMD_NAMESPACES):
-                return self.repourl + "/" + pkg.xpath("./md:location/@href",
-                                                      namespaces=REPOMD_NAMESPACES)[0]
-
-    def getDockerImage(self, callback):
-        # Download and extract the RPM from the repo.
-        image_layer_file = tempfile.NamedTemporaryFile(delete=False)
-
-        rpm_url = self.getRPMUrl(self.packagename, self.arch)
-        if rpm_url is None:
-            raise DockerFetchException("Could not get the URL for the RPM package")
-
-        with tempfile.NamedTemporaryFile() as rpm_file:
-            rpm_file.write(requests.get(rpm_url).content)
-            with tempfile.TemporaryDirectory() as tar_dir:
-                # Extract the .tar.xz inside the RPM into the dir
-                subprocess.call("rpm2cpio '%s' | cpio -i --quiet --to-stdout \*.tar.xz | tar -xJf - -C '%s'" % (rpm_file.name, tar_dir), shell=True)
-                return callback(tar_dir)
-
-
 def run():
     drc_tw = docker_registry.DockerRegistryClient(os.environ['REGISTRY'], os.environ['REGISTRY_USER'], os.environ['REGISTRY_PASSWORD'], os.environ['REGISTRY_REPO_TW'])
     drc_leap = docker_registry.DockerRegistryClient(os.environ['REGISTRY'], os.environ['REGISTRY_USER'], os.environ['REGISTRY_PASSWORD'], os.environ['REGISTRY_REPO_LEAP'])
@@ -568,7 +365,6 @@ def run():
     config = {
         'tumbleweed': {
             'fetchers': {
-                # Not on download.opensuse.org - use OBS directly
                 'i586': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/i586/opensuse-tumbleweed-image:docker", maintenance_release=True),
                 'x86_64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/x86_64/opensuse-tumbleweed-image:docker", maintenance_release=True),
                 'aarch64': DockerImageFetcherOBS(url="https://build.opensuse.org/public/build/openSUSE:Containers:Tumbleweed/containers/aarch64/opensuse-tumbleweed-image:docker", maintenance_release=True),
