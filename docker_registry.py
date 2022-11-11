@@ -40,7 +40,8 @@ class DockerRegistryClient():
         self.username = username
         self.password = password
         self.repository = repository
-        self.scopes = ["repository:%s:pull,push,delete" % repository]
+        actions = "pull,push,delete" if self.username is not None else "pull"
+        self.scopes = [f"repository:{repository}:{actions}"]
         self.token = None
 
     class DockerRegistryError(Exception):
@@ -63,8 +64,11 @@ class DockerRegistryClient():
             bearer_dict[assignment[0]] = assignment[1].strip('"')
 
         scope_param = "&scope=".join([""] + [urllib.parse.quote(scope) for scope in self.scopes])
+        auth=(self.username, self.password)
+        if self.username is None:
+            auth = None
         response = requests.get("%s?service=%s%s" % (bearer_dict['realm'], bearer_dict['service'], scope_param),
-                                auth=(self.username, self.password))
+                                auth=auth)
         self.token = response.json()['token']
 
     def doHttpCall(self, method, url, **kwargs):
