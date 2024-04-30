@@ -6,6 +6,7 @@ import osc.conf
 import osc.core
 import logging
 import ToolBase
+import subprocess
 import sys
 import re
 from lxml import etree as xml
@@ -60,25 +61,28 @@ class ContainerCleaner(ToolBase.ToolBase):
         srccontainerarchs = {}
 
         archs = self.getDirEntries(["build", project, "containers"])
-        regex_srccontainer = re.compile(R"^([^:]+)(:[^:]+)?$")
+        regex_srccontainer = re.compile(R"^([^:/]+)(:[^:/]+)?/$")
         for arch in archs:
-            buildcontainers = self.getDirEntries(["build", project, "containers", arch])
-            for buildcontainer in buildcontainers:
-                bins = self.getDirBinaries(["build", project, "containers", arch, buildcontainer])
-                if len(bins) > 0:
-                    match = regex_srccontainer.match(buildcontainer)
-                    if not match:
-                        raise Exception("Could not map %s to source container" % buildcontainer)
+            rsync_proc = subprocess.run(["rsync", "--timeout=3600", "--info=name", "--recursive", "--dry-run", f"obspublish::openqa/openSUSE:Containers:Tumbleweed/containers/{arch}/*" , "does/not/exist"],
+                                        capture_output=True, check=True)
+            for binary in rsync_proc.stdout.decode("ascii").split("\n"):
+                # Filter for source container directories
+                if not binary or binary[0] == ':' or binary[-1] != '/':
+                    continue
 
-                    srccontainer = match.group(1)
-                    if srccontainer not in srccontainers:
-                        raise Exception("Mapped %s to wrong source container (%s)" % (buildcontainer, srccontainer))
+                match = regex_srccontainer.match(binary)
+                if not match:
+                    raise Exception("Could not map %s to source container" % binary)
 
-                    if srccontainer not in srccontainerarchs:
-                        srccontainerarchs[srccontainer] = []
+                srccontainer = match.group(1)
+                if srccontainer not in srccontainers:
+                    raise Exception("Mapped %s to wrong source container (%s)" % (binary, srccontainer))
 
-                    logging.debug("%s provides binaries for %s", srccontainer, arch)
-                    srccontainerarchs[srccontainer] += [arch]
+                if srccontainer not in srccontainerarchs:
+                    srccontainerarchs[srccontainer] = []
+
+                logging.debug("%s provides binaries for %s", srccontainer, arch)
+                srccontainerarchs[srccontainer] += [arch]
 
         # Now go through each bucket and find out what doesn't contribute to the newest five
         can_delete = []
@@ -95,6 +99,8 @@ class ContainerCleaner(ToolBase.ToolBase):
                         if archs_found[arch] < 5:
                             archs_found[arch] += 1
                             contributes = True
+                else:
+                    logging.info("%s doesn't provide binaries for any arch?", srccontainer)
 
                 if contributes:
                     logging.debug("%s contributes to %s", srccontainer, package)
