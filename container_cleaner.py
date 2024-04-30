@@ -9,6 +9,7 @@ import ToolBase
 import subprocess
 import sys
 import re
+import urllib.error
 from lxml import etree as xml
 
 
@@ -114,6 +115,25 @@ class ContainerCleaner(ToolBase.ToolBase):
                         logging.info("No newer provider found either, ignoring")
                     else:
                         can_delete += [srccontainer]
+
+            # This should be done in a more planned way:
+            # * Perform deletion if the newest release is >14d old
+            # * but only if there have been new container releases for that arch,
+            #   to not delete if there was no snapshot released
+            try:
+                osc.core.http_GET(self.makeurl(["source", "openSUSE:Factory", package]))
+            except urllib.error.HTTPError as e:
+                if e.code == 404:
+                    logging.info("%s no longer exists?", package)
+                    all_older = True
+                    for srccontainer in buckets[package]:
+                        if ".2024" in srccontainer:
+                            all_older = False
+                            break
+
+                    if all_older:
+                        for srccontainer in buckets[package]:
+                            can_delete += [srccontainer]
 
         return can_delete
 
