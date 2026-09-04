@@ -84,6 +84,11 @@ class ContainerCleaner(ToolBase.ToolBase):
             buckets[package].sort(reverse=True)
             logging.debug("Found %d providers of %s", len(buckets[package]), package)
 
+            import datetime
+            today = datetime.date.today()
+            if int(buckets[package][0].maint_release) < ((today.year - 1) * 10000 + today.month * 100 + today.day) * 1000000:
+                logging.warn(f"Newest image for {package} looks old. Obsolete?")
+
             for released_image in buckets[package][:5]:
                 logging.debug(f"\t{released_image} needed")
                 srccontainers_referenced.add(released_image.srccontainer)
